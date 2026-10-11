@@ -66,7 +66,9 @@
       });
     }, { rootMargin: "-45% 0px -50% 0px" });
     navLinks.forEach(function (a) {
-      var target = document.querySelector(a.getAttribute("href"));
+      var href = a.getAttribute("href");
+      if (href.charAt(0) !== "#") return; // 下層ページ（index.html#...）では監視しない
+      var target = document.querySelector(href);
       if (target) spy.observe(target);
     });
   }

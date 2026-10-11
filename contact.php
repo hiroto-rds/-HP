@@ -73,6 +73,7 @@ $name     = field('name', 60);
 $email    = field('email', 254);
 $tel      = field('tel', 20);
 $topics   = field('topics', 300);
+$meeting  = field('meeting', 30);
 $business = field('business', 200);
 $message  = field('message', 3000, true);
 $consent  = field('consent', 20);
@@ -119,6 +120,9 @@ $body = <<<TXT
 
 ■ ご相談内容
 {$topics}
+
+■ ご希望の打ち合わせ方法
+{$meeting}
 
 ■ 事業内容・商材
 {$business}

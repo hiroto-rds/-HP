@@ -386,28 +386,34 @@
         </header>
 
         <div class="profile-layout">
-          <div class="profile-intro reveal">
-            <!-- 本人プロフィール写真をご用意いただいたら、下の .profile-photo 内を <img src="assets/img/profile.jpg" alt="..."> に差し替えてください -->
-            <figure class="profile-photo" aria-hidden="true">
-              <span class="profile-photo-mark">R</span>
-            </figure>
-            <div class="profile-text">
-              <p class="profile-name">Rデザインスタジオ<span>営業支援</span></p>
-              <p class="profile-lead">
-                相手の事業や商材を理解することを起点に、提案だけで終わらず、実行と関係構築まで向き合います。短期的な接点づくりに加え、継続的に相談してもらえる関係を大切にします。
-              </p>
-              <ol class="timeline">
-                <li>
-                  <span class="tl-tag">会社員時代</span>
-                  <p>結婚式場向け営業。担当エリア年間売上1,000万円以上。新商品提案、販売勉強会、ブライダルフェアでの提案を経験。</p>
-                </li>
-                <li>
-                  <span class="tl-tag">独立後</span>
-                  <p>食品・ギフト関連の法人営業、自治体へのアプローチ、レンタルバイク加盟店開拓営業などに取り組む。</p>
-                </li>
-              </ol>
-            </div>
+          <figure class="profile-photo reveal">
+            <picture>
+              <source type="image/webp" srcset="assets/img/profile-800.webp 800w, assets/img/profile-1400.webp 1400w" sizes="(max-width: 900px) 100vw, 560px">
+              <img src="assets/img/profile-800.jpg" srcset="assets/img/profile-800.jpg 800w, assets/img/profile-1400.jpg 1400w" sizes="(max-width: 900px) 100vw, 560px" width="1400" height="1064" loading="lazy" decoding="async" alt="ノートパソコンとカメラを置いたテーブルで仕事をする、Rデザインスタジオの営業支援担当者">
+            </picture>
+            <figcaption class="profile-badge">
+              <span class="profile-badge-label">AREA</span>
+              <span><span class="nw">オンラインは全国対応／</span><span class="nw">対面は宮崎市内</span></span>
+            </figcaption>
+          </figure>
+
+          <div class="profile-text reveal">
+            <p class="profile-name">Rデザインスタジオ<span>営業支援</span></p>
+            <p class="profile-lead">
+              相手の事業や商材を理解することを起点に、提案だけで終わらず、実行と関係構築まで向き合います。短期的な接点づくりに加え、継続的に相談してもらえる関係を大切にします。
+            </p>
+            <ol class="timeline">
+              <li>
+                <span class="tl-tag">会社員時代</span>
+                <p>結婚式場向け営業。担当エリア年間売上1,000万円以上。新商品提案、販売勉強会、ブライダルフェアでの提案を経験。</p>
+              </li>
+              <li>
+                <span class="tl-tag">独立後</span>
+                <p>食品・ギフト関連の法人営業、自治体へのアプローチ、レンタルバイク加盟店開拓営業などに取り組む。写真・動画・Web制作の知見も営業支援に活かしています。</p>
+              </li>
+            </ol>
           </div>
+        </div>
 
           <ul class="style-grid">
             <li class="style-card reveal">
@@ -431,7 +437,6 @@
               <p>提案だけで終わらず、実行し、振り返り、次の行動につなげます。</p>
             </li>
           </ul>
-        </div>
       </div>
     </section>
 
@@ -485,7 +490,6 @@
     </section>
 
     <!-- ================= 08 FAQ ================= -->
-    <!-- 対応エリア・稼働時間・契約形態は、正式なサービス設計後に回答文を確定してください -->
     <section class="section faq" id="faq" aria-labelledby="faq-title">
       <div class="container container-narrow">
         <header class="section-head reveal">
@@ -496,19 +500,15 @@
         <div class="faq-list">
           <details class="faq-item reveal">
             <summary><span class="faq-q">Q</span>対応エリアはどこですか？</summary>
-            <div class="faq-a"><p>ご相談内容や訪問の有無によって異なります。まずは所在地と想定している営業エリアをお知らせください。対応可否を確認のうえご連絡します。</p></div>
+            <div class="faq-a"><p>オンラインでのご相談・ご支援は<strong>全国</strong>に対応しています。対面でのお打ち合わせ・訪問は<strong>宮崎市内</strong>のみ対応しています。</p></div>
           </details>
           <details class="faq-item reveal">
             <summary><span class="faq-q">Q</span>オンラインでの相談はできますか？</summary>
-            <div class="faq-a"><p>初回のヒアリング方法はご相談のうえ決めさせていただきます。ご希望の方法をお問い合わせフォームにご記入ください。</p></div>
+            <div class="faq-a"><p>はい、オンラインで全国からのご相談に対応しています。宮崎市内の方は対面でのお打ち合わせも可能です。ご希望の方法をお問い合わせフォームにご記入ください。</p></div>
           </details>
           <details class="faq-item reveal">
             <summary><span class="faq-q">Q</span>どこまで支援してもらえますか？</summary>
             <div class="faq-a"><p>新規開拓・提案営業、既存取引先への提案、販売促進施策の検討・実行などに対応します。ヒアリングで課題を伺い、支援範囲を整理してからご提案します。</p></div>
-          </details>
-          <details class="faq-item reveal">
-            <summary><span class="faq-q">Q</span>契約期間はどのくらいですか？</summary>
-            <div class="faq-a"><p>支援内容に応じて個別にご相談のうえ決定します。</p></div>
           </details>
           <details class="faq-item reveal">
             <summary><span class="faq-q">Q</span>料金はいくらですか？</summary>
@@ -538,6 +538,10 @@
               <li>
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
                 事業・商材・課題をご記入いただくとスムーズです
+              </li>
+              <li>
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                オンラインは全国対応／対面は宮崎市内
               </li>
               <li>
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
@@ -582,6 +586,15 @@
                 <p class="field-error" aria-live="polite"></p>
               </fieldset>
 
+              <fieldset class="field field-full">
+                <legend>ご希望の打ち合わせ方法<span class="opt">任意</span></legend>
+                <div class="check-group">
+                  <label class="check"><input type="radio" name="meeting" value="オンライン"><span>オンライン（全国）</span></label>
+                  <label class="check"><input type="radio" name="meeting" value="対面（宮崎市内）"><span>対面（宮崎市内）</span></label>
+                  <label class="check"><input type="radio" name="meeting" value="どちらでも"><span>どちらでも</span></label>
+                </div>
+              </fieldset>
+
               <div class="field field-full">
                 <label for="f-business">事業内容・商材<span class="req">必須</span></label>
                 <input id="f-business" name="business" type="text" required maxlength="200" placeholder="例：業務用食品の卸売／自社開発のギフト商品 など">
@@ -603,7 +616,7 @@
               <div class="field field-full">
                 <label class="check check-consent">
                   <input type="checkbox" name="consent" value="同意する" required>
-                  <span>入力いただいた個人情報は、お問い合わせへの回答のためにのみ利用します。内容に同意のうえ送信します。</span>
+                  <span><a href="privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>に同意のうえ送信します。</span>
                 </label>
                 <p class="field-error" aria-live="polite"></p>
               </div>
@@ -634,7 +647,7 @@
             <span class="brand-sub">SALES SUPPORT</span>
           </span>
         </a>
-        <p>法人営業・販路開拓・販売促進を支援します。</p>
+        <p>法人営業・販路開拓・販売促進を支援します。<br>オンラインは全国対応／対面は宮崎市内</p>
       </div>
       <nav class="footer-nav" aria-label="フッターメニュー">
         <ul>
@@ -650,6 +663,7 @@
     </div>
     <div class="container">
       <div class="footer-bottom">
+        <a href="privacy.html">プライバシーポリシー</a>
         <small>&copy; <span id="year">2026</span> Rデザインスタジオ</small>
       </div>
     </div>
