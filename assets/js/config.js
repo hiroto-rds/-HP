@@ -17,5 +17,5 @@ window.RDS_CONFIG = {
   formEndpoint: "contact.php",
 
   // 送信エラー時に案内するメールアドレス（任意。空なら表示しません）
-  fallbackEmail: "info@r-design.studio.jp"
+  fallbackEmail: "info@r-design-studio.jp"
 };

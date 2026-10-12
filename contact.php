@@ -12,18 +12,18 @@
 /* ===================== 設定 ===================== */
 
 // 問い合わせを受け取るメールアドレス
-const MAIL_TO = 'info@r-design.studio.jp';
+const MAIL_TO = 'info@r-design-studio.jp';
 
 // 送信元（From）アドレス。迷惑メール判定を避けるため、サイトと同じドメインのアドレスを使用
 // 受信用と同じアドレスにしておくと、自動返信への返信や配信エラーも info@ に届きます
-const MAIL_FROM = 'info@r-design.studio.jp';
+const MAIL_FROM = 'info@r-design-studio.jp';
 const MAIL_FROM_NAME = 'Rデザインスタジオ 営業支援サイト';
 
 // 送信者へ自動返信メールを送るか
 const SEND_AUTO_REPLY = true;
 
 // 受け付けるドメイン（空配列なら制限なし）。公開URLが決まったら設定してください
-// 例：['https://r-design.studio.jp', 'https://www.r-design.studio.jp']
+// 例：['https://r-design-studio.jp', 'https://www.r-design-studio.jp']
 const ALLOWED_ORIGINS = [];
 
 // 同じ送信元からの連続送信を制限する秒数
