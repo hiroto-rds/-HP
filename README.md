@@ -51,8 +51,38 @@ assets/img/           プロフィール写真（WebP と JPEG、幅800px・1400
 
 ## お問い合わせフォームの設定
 
-初期状態では送信先が未設定のため、フォームは **デモ表示**（入力チェックのみ行い、実際には送信しない）になっています。
-実際に送信できるようにするには、次の **A・Bのどちらか** を設定してください。
+**現在の設定：B（contact.php）／エックスサーバーで公開／受信先 `info@r-design.studio.jp`**
+
+- `assets/js/config.js` … `formEndpoint: "contact.php"`
+- `contact.php` … `MAIL_TO` と `MAIL_FROM` を `info@r-design.studio.jp` に設定（自動返信あり）
+
+### エックスサーバーでの公開手順
+
+1. **メールアドレスの確認**
+   サーバーパネル →「メールアカウント設定」で `info@r-design.studio.jp` が作成済みか確認（なければ作成）
+2. **PHPバージョンの確認**
+   サーバーパネル →「PHP Ver.切替」で PHP 7.4 以上（推奨 8.x）になっているか確認
+3. **アップロード**
+   ファイルマネージャー または FTP で、ドメインの `public_html/` にファイル一式をアップロード
+   - アップロードするもの：`index.html` `privacy.html` `contact.php` `assets/` フォルダ
+   - `README.md` はアップロード不要
+   - 既存サイトと同じドメインで別の場所に置く場合は、`public_html/sales/` のようにフォルダを作ってその中へ
+4. **SSL の確認**
+   サーバーパネル →「SSL設定」で独自SSLが有効になっているか確認（`https://` で表示されること）
+5. **テスト送信**
+   公開URLからフォームを送信し、次の2通が届くことを確認
+   - `info@r-design.studio.jp` に「【営業支援サイト】○○ 様よりご相談」
+   - フォームに入力したアドレスに「【Rデザインスタジオ】お問い合わせを受け付けました」
+   - 届かない場合は迷惑メールフォルダも確認
+6. **送信元ドメインの制限（推奨）**
+   公開URLが決まったら、`contact.php` の `ALLOWED_ORIGINS` に設定
+   ```php
+   const ALLOWED_ORIGINS = ['https://r-design.studio.jp', 'https://www.r-design.studio.jp'];
+   ```
+
+> 同じ送信元からは60秒間連続送信できないため、テストを繰り返す場合は1分ほど空けてください。
+
+以下は、他の公開先に移す場合などの参考情報です。
 
 | | A. Formspree | B. contact.php（PHP） |
 |---|---|---|

@@ -14,8 +14,8 @@
  * 詳しくは README.md の「お問い合わせフォームの設定」を参照してください。
  */
 window.RDS_CONFIG = {
-  formEndpoint: "",
+  formEndpoint: "contact.php",
 
   // 送信エラー時に案内するメールアドレス（任意。空なら表示しません）
-  fallbackEmail: ""
+  fallbackEmail: "info@r-design.studio.jp"
 };
