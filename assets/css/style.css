@@ -226,6 +226,16 @@ button, input, textarea { font: inherit; color: inherit; }
 .hero-card-list li { display: flex; align-items: center; gap: 10px; font-size: 14.5px; font-weight: 500; }
 .hero-card-list .icon { color: var(--teal-500); stroke-width: 2.4; }
 .hero-card-note { margin-top: 18px; font-size: 12px; color: var(--ink-mute); }
+.hero-card-sub-kpi {
+  margin-top: 18px; padding: 16px 18px; border-radius: 12px; background: var(--navy-800); color: #fff;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap;
+}
+.hck-label { font-size: 13px; font-weight: 700; color: #8ee0dd; line-height: 1.5; }
+.hck-label span { display: block; font-size: 12px; font-weight: 500; color: rgba(255, 255, 255, .75); }
+.hck-value { display: flex; align-items: baseline; gap: 2px; line-height: 1; }
+.hck-pre { font-size: 13px; font-weight: 700; margin-right: 8px; color: rgba(255, 255, 255, .8); }
+.hck-value .kpi-num { font-size: 44px; color: #fff; }
+.hck-value .kpi-unit { font-size: 16px; }
 
 /* KPI numerals */
 .kpi { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; margin-top: 10px; color: var(--navy-800); line-height: 1.1; }
@@ -361,19 +371,14 @@ button, input, textarea { font: inherit; color: inherit; }
 .kpi-md { color: #fff; margin-top: 12px; }
 .kpi-md .kpi-num { font-size: clamp(52px, 5.2vw, 68px); }
 .kpi-md .kpi-pre { color: rgba(255, 255, 255, .75); }
-.split-bar { display: flex; gap: 4px; margin-top: 14px; height: 34px; }
-.split {
-  position: relative; display: flex; align-items: center; padding: 0 12px;
-  width: var(--w); border-radius: 6px; overflow: hidden; white-space: nowrap;
-  font-size: 12.5px; font-weight: 700;
-  transform: scaleX(0); transform-origin: left; transition: transform 1s var(--ease);
+.result-substat {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; margin-top: 12px;
+  font-size: 14px; color: rgba(255, 255, 255, .78);
 }
-.split em { font-style: normal; opacity: 0; transition: opacity .4s .9s; }
-.split-a { background: var(--teal-500); }
-.split-b { background: rgba(20, 163, 160, .45); transition-delay: .35s; }
-.is-visible .split { transform: scaleX(1); }
-.is-visible .split em { opacity: 1; }
-.is-visible .split-b em { transition-delay: 1.25s; }
+.result-substat span {
+  font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 6px;
+  background: rgba(255, 255, 255, .1); color: #fff;
+}
 
 .result-facts { margin-top: 14px; display: grid; gap: 10px; }
 .result-facts li {
