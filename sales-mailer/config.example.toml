@@ -68,11 +68,12 @@ browser_channel = "chrome"
 
 [sender]
 # メール本文の署名・フォームへの自動入力に使います
-company = "（要記入）"
+# 電話番号・郵便番号・住所は公開リポジトリに載せないよう、config.toml にだけ書いてください。
+company = "株式会社リンクス"
 last_name = "菊池"
-first_name = "（要記入）"
+first_name = "裕人"
 last_name_kana = "キクチ"   # カタカナ
-first_name_kana = "（要記入）"  # カタカナ
+first_name_kana = "ヒロト"  # カタカナ
 # Mac の「メール」アプリに登録してある、送信に使うアドレス
 email = "kikuchi@mobirio.com"
 phone = "（要記入）"
