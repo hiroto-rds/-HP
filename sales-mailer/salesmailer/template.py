@@ -39,8 +39,10 @@ def build_context(lead: Lead, sender: dict) -> dict:
     ctx.update({
         "店名": shop,
         "会社名": company or shop,
+        "宛先名": f"{company}\n{shop}" if company and company not in shop else shop,
         "宛名": f"{company}\n{shop} ご担当者様" if company and company not in shop else f"{shop} ご担当者様",
         "送信者会社名": sender["company"],
+        "送信者姓": sender["last_name"],
         "送信者氏名": f"{sender['last_name']} {sender['first_name']}",
         "送信者氏名カナ": f"{sender['last_name_kana']} {sender['first_name_kana']}",
         "送信者メール": sender["email"],
