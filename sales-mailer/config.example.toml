@@ -43,7 +43,7 @@ skip_business_status_keywords = ["閉店", "休業", "廃業", "移転"]
 # 「備考」にこの言葉が入っている会社には送りません（配信停止の連絡が来たら備考に「配信停止」と書く）
 skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り", "NG"]
 # 「アプローチ回数」や「最終コンタクト」が入っている会社（電話などで連絡済み）には送らない
-skip_already_contacted = true
+skip_already_contacted = false
 # true: メールアドレスがない会社だけフォームで送る / false: フォームがある会社はすべてフォーム対象
 form_only_when_no_email = true
 # このドメインのフォームはポータルサイト等のため使いません
@@ -51,6 +51,15 @@ skip_form_domains = [
   "goobike.com", "bikebros.co.jp", "instagram.com", "facebook.com",
   "x.com", "twitter.com", "line.me", "google.com",
 ]
+
+[color_filter]
+# スプレッドシートで灰色・薄緑に塗りつぶした行の会社には送りません
+enabled = true
+skip_colors = ["gray", "green"]   # "gray"=灰色 "green"=薄緑 "other"=それ以外の色
+# 元のリスト（モビリオ タブ）の色も確認します（「元シート行」の行の A列・C列）
+source_tab = "モビリオ"
+source_row_column = "元シート行"
+source_columns = ["A", "C"]
 
 [mail]
 # 1日に送る上限。迷惑メール扱いを避けるため、最初は少なめにして徐々に増やすのがおすすめです。

@@ -5,7 +5,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .config import resolve_path
+from .config import color_settings, resolve_path
 
 # OAuth でログインしたあとの許可情報を保存するファイル（credentials フォルダ内）
 TOKEN_FILE = "token.json"
@@ -22,6 +22,7 @@ class Lead:
     row: int  # スプレッドシート上の行番号（1始まり）
     values: dict = field(repr=False)
     cols: dict = field(repr=False)  # [columns] の設定
+    colors: set = field(default_factory=set, repr=False)  # 行の塗りつぶし色（"gray" "green" など）
 
     def get(self, key: str) -> str:
         """[columns] のキー名（shop_name など）で値を取り出す。"""
@@ -45,6 +46,20 @@ class Lead:
     def label(self) -> str:
         pref = self.values.get("都道府県", "")
         return f"{self.shop_name}（{pref}）" if pref else self.shop_name
+
+
+def color_name(bg: dict | None) -> str | None:
+    """塗りつぶし色を「gray」「green」「other」に分ける。白・塗りなしは None。"""
+    if not bg:
+        return None
+    r, g, b = (bg.get(k, 0.0) for k in ("red", "green", "blue"))
+    if min(r, g, b) > 0.97:
+        return None
+    if max(r, g, b) - min(r, g, b) < 0.06:
+        return "gray"
+    if g > r + 0.04 and g > b + 0.04:
+        return "green"
+    return "other"
 
 
 class SheetClient:
@@ -116,7 +131,65 @@ class SheetClient:
                 if not any(v.strip() for v in values.values()):
                     continue
                 leads.append(Lead(tab=tab, row=i, values=values, cols=self.cols))
+        self._attach_colors(leads)
         return leads
+
+    # ---------- セルの塗りつぶし色 ----------
+
+    def _attach_colors(self, leads: list[Lead]) -> None:
+        """各行の塗りつぶし色を調べて Lead.colors に入れる。
+
+        送信対象のタブの「リードID」「店名」の列と、元のリスト（モビリオ タブ）の同じ会社の行を見る。
+        """
+        cs = color_settings(self.cfg)
+        if not cs["enabled"] or not leads:
+            return
+        a1 = self._gspread.utils.rowcol_to_a1
+        by_tab: dict[str, list[Lead]] = {}
+        for lead in leads:
+            by_tab.setdefault(lead.tab, []).append(lead)
+        for tab, items in by_tab.items():
+            header = list(items[0].values.keys())
+            cols = [header.index(self.cols[k]) + 1 for k in ("lead_id", "shop_name") if self.cols.get(k) in header]
+            last = max(l.row for l in items)
+            colors = self._row_colors([f"'{tab}'!{a1(1, c)}:{a1(last, c)}" for c in cols])
+            for lead in items:
+                lead.colors |= colors.get(lead.row, set())
+
+        src_tab, src_col = cs["source_tab"], cs["source_row_column"]
+        src_rows = {}
+        for lead in leads:
+            try:
+                src_rows[lead.lead_id] = int(float(lead.values.get(src_col, "")))
+            except ValueError:
+                pass
+        if src_tab and src_rows:
+            last = max(src_rows.values())
+            colors = self._row_colors([f"'{src_tab}'!{c}1:{c}{last}" for c in cs["source_columns"]])
+            for lead in leads:
+                if lead.lead_id in src_rows:
+                    lead.colors |= colors.get(src_rows[lead.lead_id], set())
+
+    def _row_colors(self, ranges: list[str]) -> dict[int, set]:
+        try:
+            meta = self.book.fetch_sheet_metadata(params={
+                "includeGridData": "true",
+                "ranges": ranges,
+                "fields": "sheets.data(startRow,rowData.values(effectiveFormat.backgroundColor))",
+            })
+        except self._gspread.exceptions.APIError as e:
+            print(f"⚠ セルの色を読み取れませんでした（{ranges[0]} など）: {e}")
+            return {}
+        result: dict[int, set] = {}
+        for sheet in meta.get("sheets", []):
+            for data in sheet.get("data", []):
+                start = data.get("startRow", 0)
+                for i, row in enumerate(data.get("rowData", [])):
+                    for cell in row.get("values", []):
+                        name = color_name(cell.get("effectiveFormat", {}).get("backgroundColor"))
+                        if name:
+                            result.setdefault(start + i + 1, set()).add(name)
+        return result
 
     def log_ws(self):
         if self._log_ws is None:

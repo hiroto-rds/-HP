@@ -1,8 +1,10 @@
 """設定ファイル（config.toml）の読み込み。"""
 from __future__ import annotations
 
+import re
 import shutil
 import sys
+import unicodedata
 from pathlib import Path
 
 try:
@@ -13,6 +15,7 @@ except ModuleNotFoundError:  # Python 3.10 以前
 BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIG_PATH = BASE_DIR / "config.toml"
 EXAMPLE_PATH = BASE_DIR / "config.example.toml"
+EXCLUDE_PATH = BASE_DIR / "exclude.txt"
 
 PLACEHOLDER = "（要記入）"
 
@@ -39,3 +42,31 @@ def resolve_path(path: str) -> Path:
 def missing_sender_fields(cfg: dict) -> list[str]:
     """送信者情報のうち、まだ「（要記入）」のままの項目名を返す。"""
     return [k for k, v in cfg["sender"].items() if PLACEHOLDER in str(v)]
+
+
+COLOR_DEFAULTS = {
+    "enabled": True,
+    "skip_colors": ["gray", "green"],
+    "source_tab": "モビリオ",
+    "source_row_column": "元シート行",
+    "source_columns": ["A", "C"],
+}
+
+
+def color_settings(cfg: dict) -> dict:
+    """[color_filter] の設定。config.toml に書かれていない項目は初期値を使う。"""
+    return {**COLOR_DEFAULTS, **cfg.get("color_filter", {})}
+
+
+def normalize_name(text: str) -> str:
+    """会社名の比較用に、全角・半角、大文字・小文字、空白・記号の違いをそろえる。"""
+    text = unicodedata.normalize("NFKC", text or "").lower()
+    return re.sub(r"[\s'’‘`´・.,，、。]", "", text)
+
+
+def load_exclude_names() -> list[str]:
+    """exclude.txt（送らない会社のリスト）を読む。"""
+    if not EXCLUDE_PATH.exists():
+        return []
+    lines = EXCLUDE_PATH.read_text(encoding="utf-8").splitlines()
+    return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]

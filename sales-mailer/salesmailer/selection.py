@@ -5,7 +5,10 @@ import re
 from datetime import date
 from urllib.parse import urlparse
 
+from .config import color_settings, load_exclude_names, normalize_name
 from .sheet import FINAL_RESULTS, Lead
+
+COLOR_LABELS = {"gray": "灰色", "green": "薄緑", "other": "その他の色"}
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 URL_RE = re.compile(r"https?://[^\s、，,）)]+")
@@ -29,6 +32,8 @@ def normalize_url(url: str) -> str:
 class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
+        self.skip_colors = set(color_settings(cfg)["skip_colors"])
+        self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
         self.done_ids = set()
         self.done_targets = set()
         for e in log:
@@ -50,6 +55,12 @@ class Selector:
         f = self.f
         if lead.lead_id in self.done_ids:
             return "送信ログに記録済み"
+        name = self.excluded_by(lead)
+        if name:
+            return f"送らない会社リスト（{name}）"
+        marked = lead.colors & self.skip_colors
+        if marked:
+            return "行が" + "・".join(COLOR_LABELS.get(c, c) for c in sorted(marked)) + "で塗られている"
         judgement = lead.get("judgement")
         if f["allowed_judgements"] and judgement not in f["allowed_judgements"]:
             return f"対象判定が「{judgement or '空欄'}」"
@@ -65,6 +76,14 @@ class Selector:
             count = lead.get("approach_count")
             if (count and count not in ("0", "0.0")) or lead.get("last_contact"):
                 return "連絡済み（アプローチ回数・最終コンタクトあり）"
+        return None
+
+    def excluded_by(self, lead: Lead) -> str | None:
+        """exclude.txt のどの名前に当てはまるか。"""
+        target = normalize_name(lead.shop_name + " " + lead.get("company"))
+        for name, norm in self.excludes:
+            if norm and norm in target:
+                return name
         return None
 
     def email_for(self, lead: Lead) -> str:
