@@ -44,20 +44,6 @@ def missing_sender_fields(cfg: dict) -> list[str]:
     return [k for k, v in cfg["sender"].items() if PLACEHOLDER in str(v)]
 
 
-COLOR_DEFAULTS = {
-    "enabled": True,
-    "skip_colors": ["gray", "green"],
-    "source_tab": "モビリオ",
-    "source_row_column": "元シート行",
-    "source_columns": ["A", "C"],
-}
-
-
-def color_settings(cfg: dict) -> dict:
-    """[color_filter] の設定。config.toml に書かれていない項目は初期値を使う。"""
-    return {**COLOR_DEFAULTS, **cfg.get("color_filter", {})}
-
-
 def normalize_name(text: str) -> str:
     """会社名の比較用に、全角・半角、大文字・小文字、空白・記号の違いをそろえる。"""
     text = unicodedata.normalize("NFKC", text or "").lower()

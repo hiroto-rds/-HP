@@ -52,15 +52,6 @@ skip_form_domains = [
   "x.com", "twitter.com", "line.me", "google.com",
 ]
 
-[color_filter]
-# スプレッドシートで灰色・薄緑に塗りつぶした行の会社には送りません
-enabled = true
-skip_colors = ["gray", "green"]   # "gray"=灰色 "green"=薄緑 "other"=それ以外の色
-# 元のリスト（モビリオ タブ）の色も確認します（「元シート行」の行の A列・C列）
-source_tab = "モビリオ"
-source_row_column = "元シート行"
-source_columns = ["A", "C"]
-
 [mail]
 # 1日に送る上限。迷惑メール扱いを避けるため、最初は少なめにして徐々に増やすのがおすすめです。
 daily_limit = 50

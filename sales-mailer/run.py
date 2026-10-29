@@ -15,7 +15,7 @@ import sys
 import time
 
 from salesmailer.config import load_config, missing_sender_fields
-from salesmailer.selection import COLOR_LABELS, Selector
+from salesmailer.selection import Selector
 from salesmailer.sheet import SheetClient
 from salesmailer.template import TemplateError, load_template, render_message
 
@@ -56,14 +56,6 @@ def cmd_check(cfg, args):
     print(f"\n読み込んだ会社: {len(leads)} 件（タブ: {', '.join(cfg['sheet']['tabs'])}）")
     print(f"メール送信の対象: {len(mails)} 件（今日の送信済み {selector.sent_today('メール')} / 上限 {cfg['mail']['daily_limit']}）")
     print(f"フォーム送信の対象: {len(forms)} 件（今日の送信済み {selector.sent_today('フォーム')} / 上限 {cfg['form']['daily_limit']}）")
-    colored = {}
-    for lead in leads:
-        marked = lead.colors & selector.skip_colors
-        if marked and not selector.excluded_by(lead):
-            for c in marked:
-                colored[c] = colored.get(c, 0) + 1
-    for c, n in sorted(colored.items()):
-        print(f"色で除外: {COLOR_LABELS.get(c, c)}の行 {n} 件")
     if selector.excludes:
         print("\n▼ 送らない会社リスト（exclude.txt）で除外")
         for name, _ in selector.excludes:

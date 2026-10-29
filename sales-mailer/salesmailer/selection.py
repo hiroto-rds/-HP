@@ -5,10 +5,8 @@ import re
 from datetime import date
 from urllib.parse import urlparse
 
-from .config import color_settings, load_exclude_names, normalize_name
+from .config import load_exclude_names, normalize_name
 from .sheet import FINAL_RESULTS, Lead
-
-COLOR_LABELS = {"gray": "灰色", "green": "薄緑", "other": "その他の色"}
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
 URL_RE = re.compile(r"https?://[^\s、，,）)]+")
@@ -32,7 +30,6 @@ def normalize_url(url: str) -> str:
 class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
-        self.skip_colors = set(color_settings(cfg)["skip_colors"])
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
         self.done_ids = set()
         self.done_targets = set()
@@ -58,9 +55,6 @@ class Selector:
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
-        marked = lead.colors & self.skip_colors
-        if marked:
-            return "行が" + "・".join(COLOR_LABELS.get(c, c) for c in sorted(marked)) + "で塗られている"
         judgement = lead.get("judgement")
         if f["allowed_judgements"] and judgement not in f["allowed_judgements"]:
             return f"対象判定が「{judgement or '空欄'}」"
