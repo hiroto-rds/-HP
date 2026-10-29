@@ -7,8 +7,9 @@
 [sheet]
 # スプレッドシートのURL https://docs.google.com/spreadsheets/d/【ここ】/edit の【ここ】の部分
 spreadsheet_id = "（要記入）"
-# Google のサービスアカウントの鍵ファイル（README の手順で作成して置きます）
-credentials_file = "credentials/service-account.json"
+# Google の認証ファイル（README の手順でダウンロードして credentials フォルダに置きます）
+# credentials フォルダに JSON ファイルが1つだけなら、名前が違っても自動で使います。
+credentials_file = "credentials/client_secret.json"
 # 送信対象にするタブ（書いた順に読み込みます）
 tabs = ["04_全国拡張候補", "01_候補評価"]
 # 送信履歴を記録するタブ（なければ自動で作成されます）

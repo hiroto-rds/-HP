@@ -7,7 +7,10 @@ from datetime import datetime
 
 from .config import resolve_path
 
-LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "宛先", "タブ", "メモ"]
+# OAuth でログインしたあとの許可情報を保存するファイル（credentials フォルダ内）
+TOKEN_FILE = "token.json"
+
+LOG_HEADER =["日時", "方法", "結果", "リードID", "店名", "宛先", "タブ", "メモ"]
 
 # この結果が記録された会社には、次回以降は送らない（「エラー」だけは再挑戦する）
 FINAL_RESULTS = {"送信済み", "スキップ", "営業お断り", "フォームなし"}
@@ -51,24 +54,45 @@ class SheetClient:
         self._gspread = gspread
         self.cfg = cfg
         self.cols = cfg["columns"]
-        cred = resolve_path(cfg["sheet"]["credentials_file"])
-        if not cred.exists():
-            raise SystemExit(
-                f"Google の鍵ファイルが見つかりません: {cred}\n"
-                "README の「Google スプレッドシートとの接続」の手順で作成してください。"
-            )
-        gc = gspread.service_account(filename=str(cred))
+        gc, hint = self._authorize(gspread, resolve_path(cfg["sheet"]["credentials_file"]))
         try:
             self.book = gc.open_by_key(cfg["sheet"]["spreadsheet_id"])
         except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.APIError) as e:
-            account = json.loads(cred.read_text(encoding="utf-8")).get("client_email", "")
-            raise SystemExit(
-                "スプレッドシートを開けませんでした。\n"
-                f"サービスアカウント（{account}）に"
-                "スプレッドシートを「編集者」として共有してあるか確認してください。\n"
-                f"（詳細: {e}）"
-            )
+            raise SystemExit(f"スプレッドシートを開けませんでした。\n{hint}\n（詳細: {e}）")
         self._log_ws = None
+
+    @staticmethod
+    def _authorize(gspread, cred):
+        """credentials フォルダの JSON の種類に合わせて、Google にログインする。
+
+        - OAuth クライアント（デスクトップアプリ）: 初回だけブラウザで自分の Google アカウントにログイン
+        - サービスアカウントの鍵: そのまま接続
+        """
+        if not cred.exists():
+            found = [p for p in cred.parent.glob("*.json") if p.name != TOKEN_FILE]
+            if len(found) != 1:
+                raise SystemExit(
+                    f"Google の認証ファイルが見つかりません: {cred}\n"
+                    "README の「Google スプレッドシートとの接続」の手順で作成してください。"
+                )
+            cred = found[0]
+        info = json.loads(cred.read_text(encoding="utf-8"))
+        if info.get("type") == "service_account":
+            return gspread.service_account(filename=str(cred)), (
+                f"サービスアカウント（{info.get('client_email', '')}）に"
+                "スプレッドシートを「編集者」として共有してあるか確認してください。"
+            )
+        if "installed" in info or "web" in info:
+            token = cred.parent / TOKEN_FILE
+            if not token.exists():
+                print("ブラウザが開くので、スプレッドシートを編集できる Google アカウントでログインし、「許可」を押してください。")
+            gc = gspread.oauth(
+                scopes=["https://www.googleapis.com/auth/spreadsheets"],
+                credentials_filename=str(cred),
+                authorized_user_filename=str(token),
+            )
+            return gc, "ログインした Google アカウントで、このスプレッドシートを編集できるか確認してください。"
+        raise SystemExit(f"{cred.name} は Google の認証ファイルではないようです。")
 
     # ---------- 読み込み ----------
 
