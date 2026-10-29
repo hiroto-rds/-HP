@@ -69,12 +69,12 @@ browser_channel = "chrome"
 [sender]
 # メール本文の署名・フォームへの自動入力に使います
 company = "（要記入）"
-last_name = "（要記入）"
+last_name = "菊池"
 first_name = "（要記入）"
-last_name_kana = "（要記入）"   # カタカナ
+last_name_kana = "キクチ"   # カタカナ
 first_name_kana = "（要記入）"  # カタカナ
 # Mac の「メール」アプリに登録してある、送信に使うアドレス
-email = "（要記入）"
+email = "kikuchi@mobirio.com"
 phone = "（要記入）"
 zip = "（要記入）"
 address = "（要記入）"
