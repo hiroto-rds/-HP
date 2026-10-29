@@ -1,0 +1,81 @@
+# 営業メール・フォーム送信ツールの設定ファイル
+#
+# 初回の実行時に、このファイルが config.toml としてコピーされます。
+# 編集するのは config.toml の方です（config.toml は Git には保存されません）。
+# 「（要記入）」の部分は必ず書き換えてください。残っていると送信できません。
+
+[sheet]
+# スプレッドシートのURL https://docs.google.com/spreadsheets/d/【ここ】/edit の【ここ】の部分
+spreadsheet_id = "（要記入）"
+# Google のサービスアカウントの鍵ファイル（README の手順で作成して置きます）
+credentials_file = "credentials/service-account.json"
+# 送信対象にするタブ（書いた順に読み込みます）
+tabs = ["04_全国拡張候補", "01_候補評価"]
+# 送信履歴を記録するタブ（なければ自動で作成されます）
+log_tab = "92_送信ログ"
+
+[columns]
+# スプレッドシート1行目の見出し名。見出しを変えた場合はここも合わせて変えてください。
+lead_id = "リードID"
+shop_name = "確認後店名"
+company = "公開運営主体"
+email = "代表メール"
+form_url = "問い合わせフォーム"
+judgement = "対象判定"
+business_status = "営業状態"
+list_state = "リスト状態"
+score = "合計点"
+email_adoption = "メール採用判定"
+approach_count = "アプローチ回数"
+last_contact = "最終コンタクト"
+remarks = "備考"
+
+[filter]
+# 「対象判定」がこのどれかの会社だけに送ります（「除外」は送りません）
+allowed_judgements = ["対象", "要確認"]
+# 「リスト状態」がこの値の会社だけに送ります（空 "" にすると条件なし）
+required_list_state = "sales-ready"
+# 「メール採用判定」列があるタブでは、この値の会社だけにメールを送ります
+allowed_email_adoption = ["送信候補"]
+# 「営業状態」にこの言葉が入っている会社には送りません
+skip_business_status_keywords = ["閉店", "休業", "廃業", "移転"]
+# 「備考」にこの言葉が入っている会社には送りません（配信停止の連絡が来たら備考に「配信停止」と書く）
+skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り", "NG"]
+# 「アプローチ回数」や「最終コンタクト」が入っている会社（電話などで連絡済み）には送らない
+skip_already_contacted = true
+# true: メールアドレスがない会社だけフォームで送る / false: フォームがある会社はすべてフォーム対象
+form_only_when_no_email = true
+# このドメインのフォームはポータルサイト等のため使いません
+skip_form_domains = [
+  "goobike.com", "bikebros.co.jp", "instagram.com", "facebook.com",
+  "x.com", "twitter.com", "line.me", "google.com",
+]
+
+[mail]
+# 1日に送る上限。迷惑メール扱いを避けるため、最初は少なめにして徐々に増やすのがおすすめです。
+daily_limit = 50
+# 1通ごとの待ち時間（秒）。この範囲でランダムに待ちます。
+interval_seconds = [60, 120]
+template = "templates/email.txt"
+
+[form]
+# 1日にフォームで送る上限
+daily_limit = 50
+template = "templates/form.txt"
+# "chrome" にすると Mac にインストール済みの Google Chrome を使います。
+# 空 "" のままなら Playwright 付属のブラウザを使います。
+browser_channel = "chrome"
+
+[sender]
+# メール本文の署名・フォームへの自動入力に使います
+company = "（要記入）"
+last_name = "（要記入）"
+first_name = "（要記入）"
+last_name_kana = "（要記入）"   # カタカナ
+first_name_kana = "（要記入）"  # カタカナ
+# Mac の「メール」アプリに登録してある、送信に使うアドレス
+email = "（要記入）"
+phone = "（要記入）"
+zip = "（要記入）"
+address = "（要記入）"
+url = ""

@@ -1,0 +1,6 @@
+# 個人の設定・Google の鍵は Git に保存しない
+config.toml
+credentials/*
+!credentials/.gitkeep
+__pycache__/
+.venv/
