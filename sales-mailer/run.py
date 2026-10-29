@@ -6,6 +6,7 @@
   python3 run.py test-mail 自分のアドレス  1通だけ自分宛てにテスト送信する
   python3 run.py mail [--limit 10]     メールを送信する（1日の上限まで）
   python3 run.py form [--limit 10]     フォームを半自動で入力する（送信ボタンは自分で押す）
+  どのコマンドも --pref 宮崎 福岡（または --pref 九州）で都道府県ごとに絞り込めます
 """
 from __future__ import annotations
 
@@ -15,16 +16,23 @@ import sys
 import time
 
 from salesmailer.config import load_config, missing_sender_fields
-from salesmailer.selection import Selector
+from salesmailer.selection import Selector, expand_prefectures, in_prefectures
 from salesmailer.sheet import SheetClient
 from salesmailer.template import TemplateError, load_template, render_message
 
 
-def connect(cfg):
+def connect(cfg, args=None):
     print("スプレッドシートを読み込んでいます…")
     sheet = SheetClient(cfg)
     leads = sheet.load_leads()
     selector = Selector(cfg, sheet.load_log())
+    words = getattr(args, "pref", None)
+    if words:
+        wanted = expand_prefectures(words)
+        leads = [l for l in leads if in_prefectures(l.prefecture, wanted)]
+        print(f"都道府県で絞り込み: {'・'.join(wanted)}（{len(leads)} 件）")
+        if not leads:
+            sys.exit("指定した都道府県の会社がありません。都道府県名を確認してください。")
     return sheet, leads, selector
 
 
@@ -50,13 +58,21 @@ def confirm(question: str) -> bool:
 # ---------------- コマンド ----------------
 
 def cmd_check(cfg, args):
-    _, leads, selector = connect(cfg)
+    _, leads, selector = connect(cfg, args)
     mails = selector.email_candidates(leads)
     forms = selector.form_candidates(leads)
     print(f"\n読み込んだ会社: {len(leads)} 件（タブ: {', '.join(cfg['sheet']['tabs'])}）")
     print(f"メール送信の対象: {len(mails)} 件（今日の送信済み {selector.sent_today('メール')} / 上限 {cfg['mail']['daily_limit']}）")
     print(f"フォーム送信の対象: {len(forms)} 件（今日の送信済み {selector.sent_today('フォーム')} / 上限 {cfg['form']['daily_limit']}）")
-    if selector.excludes:
+    counts: dict = {}
+    for i, items in enumerate((mails, forms)):
+        for lead, _ in items:
+            counts.setdefault(lead.prefecture or "（空欄）", [0, 0])[i] += 1
+    if counts:
+        print("\n▼ 都道府県ごとの送信対象")
+        for pref, (m, f) in sorted(counts.items(), key=lambda kv: -sum(kv[1])):
+            print(f"  {pref}　メール {m} 件 / フォーム {f} 件")
+    if selector.excludes and not args.pref:
         print("\n▼ 送らない会社リスト（exclude.txt）で除外")
         for name, _ in selector.excludes:
             hits = [l for l in leads if selector.excluded_by(l) == name]
@@ -76,7 +92,7 @@ def cmd_check(cfg, args):
 
 
 def cmd_preview(cfg, args):
-    _, leads, selector = connect(cfg)
+    _, leads, selector = connect(cfg, args)
     messages = render_all(cfg, "mail", selector.email_candidates(leads)[: args.n])
     if not messages:
         print("メール送信の対象がありません。")
@@ -105,7 +121,7 @@ def cmd_mail(cfg, args):
     from salesmailer.mac_mail import MailError, send_mail
 
     require_sender(cfg)
-    sheet, leads, selector = connect(cfg)
+    sheet, leads, selector = connect(cfg, args)
     remaining = cfg["mail"]["daily_limit"] - selector.sent_today("メール")
     if args.limit is not None:
         remaining = min(remaining, args.limit)
@@ -152,7 +168,7 @@ def cmd_form(cfg, args):
     from salesmailer.form_filler import build_values, fill_page, page_warnings
 
     require_sender(cfg)
-    sheet, leads, selector = connect(cfg)
+    sheet, leads, selector = connect(cfg, args)
     remaining = cfg["form"]["daily_limit"] - selector.sent_today("フォーム")
     if args.limit is not None:
         remaining = min(remaining, args.limit)
@@ -220,16 +236,21 @@ def cmd_form(cfg, args):
 def main():
     parser = argparse.ArgumentParser(description="スプレッドシートの会社リストに営業メール・フォームを送るツール")
     sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("check", help="送信対象の件数を確認する")
+    pref_help = "都道府県・地方で絞り込む（例: --pref 宮崎 福岡 / --pref 九州）"
+    p = sub.add_parser("check", help="送信対象の件数を確認する")
+    p.add_argument("--pref", nargs="+", help=pref_help)
     p = sub.add_parser("preview", help="メール文面を確認する（送信しない）")
     p.add_argument("-n", type=int, default=3, help="表示する件数")
+    p.add_argument("--pref", nargs="+", help=pref_help)
     p = sub.add_parser("test-mail", help="自分宛てにテスト送信する")
     p.add_argument("address", help="テストメールの宛先（自分のアドレス）")
     p = sub.add_parser("mail", help="メールを送信する")
     p.add_argument("--limit", type=int, help="今回送る件数の上限")
     p.add_argument("--yes", action="store_true", help="確認を省略して送信を始める")
+    p.add_argument("--pref", nargs="+", help=pref_help)
     p = sub.add_parser("form", help="フォームを半自動で入力する")
     p.add_argument("--limit", type=int, help="今回送る件数の上限")
+    p.add_argument("--pref", nargs="+", help=pref_help)
     args = parser.parse_args()
 
     cfg = load_config()

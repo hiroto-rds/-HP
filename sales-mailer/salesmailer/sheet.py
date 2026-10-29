@@ -10,7 +10,7 @@ from .config import resolve_path
 # OAuth でログインしたあとの許可情報を保存するファイル（credentials フォルダ内）
 TOKEN_FILE = "token.json"
 
-LOG_HEADER =["日時", "方法", "結果", "リードID", "店名", "宛先", "タブ", "メモ"]
+LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "都道府県", "宛先", "タブ", "メモ"]
 
 # この結果が記録された会社には、次回以降は送らない（「エラー」だけは再挑戦する）
 FINAL_RESULTS = {"送信済み", "スキップ", "営業お断り", "フォームなし"}
@@ -42,8 +42,12 @@ class Lead:
         except ValueError:
             return -1
 
+    @property
+    def prefecture(self) -> str:
+        return self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+
     def label(self) -> str:
-        pref = self.values.get("都道府県", "")
+        pref = self.prefecture
         return f"{self.shop_name}（{pref}）" if pref else self.shop_name
 
 
@@ -126,6 +130,17 @@ class SheetClient:
             except self._gspread.exceptions.WorksheetNotFound:
                 self._log_ws = self.book.add_worksheet(title=name, rows=1000, cols=len(LOG_HEADER))
                 self._log_ws.append_row(LOG_HEADER, value_input_option="RAW")
+            self._log_header = [h.strip() for h in self._log_ws.row_values(1)]
+            # 以前のバージョンで作ったログタブには、足りない見出しを右端に追加する
+            missing = [h for h in LOG_HEADER if h not in self._log_header]
+            if missing:
+                ws = self._log_ws
+                need = len(self._log_header) + len(missing)
+                if ws.col_count < need:
+                    ws.add_cols(need - ws.col_count)
+                for h in missing:
+                    self._log_header.append(h)
+                    ws.update_cell(1, len(self._log_header), h)
         return self._log_ws
 
     def load_log(self) -> list[dict]:
@@ -140,11 +155,15 @@ class SheetClient:
     def record(self, lead: Lead, method: str, result: str, target: str, memo: str = "") -> dict:
         """送信ログに1行追加し、送信済みならリストの「アプローチ回数」「最終コンタクト」も更新する。"""
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        entry = [now, method, result, lead.lead_id, lead.shop_name, target, lead.tab, memo]
-        self.log_ws().append_row(entry, value_input_option="RAW")
+        entry = {
+            "日時": now, "方法": method, "結果": result, "リードID": lead.lead_id, "店名": lead.shop_name,
+            "都道府県": lead.prefecture, "宛先": target, "タブ": lead.tab, "メモ": memo,
+        }
+        ws = self.log_ws()
+        ws.append_row([entry.get(h, "") for h in self._log_header], value_input_option="RAW")
         if result == "送信済み":
             self._mark_contacted(lead, method, now[:10])
-        return dict(zip(LOG_HEADER, entry))
+        return entry
 
     def _mark_contacted(self, lead: Lead, method: str, date: str) -> None:
         ws = self.book.worksheet(lead.tab)

@@ -22,6 +22,43 @@ def extract_url(text: str) -> str:
     return m.group(0) if m else ""
 
 
+REGIONS = {
+    "北海道": ["北海道"],
+    "東北": ["青森", "岩手", "宮城", "秋田", "山形", "福島"],
+    "関東": ["茨城", "栃木", "群馬", "埼玉", "千葉", "東京", "神奈川"],
+    "中部": ["新潟", "富山", "石川", "福井", "山梨", "長野", "岐阜", "静岡", "愛知"],
+    "近畿": ["三重", "滋賀", "京都", "大阪", "兵庫", "奈良", "和歌山"],
+    "関西": ["三重", "滋賀", "京都", "大阪", "兵庫", "奈良", "和歌山"],
+    "中国": ["鳥取", "島根", "岡山", "広島", "山口"],
+    "四国": ["徳島", "香川", "愛媛", "高知"],
+    "九州": ["福岡", "佐賀", "長崎", "熊本", "大分", "宮崎", "鹿児島"],
+    "沖縄": ["沖縄"],
+}
+
+
+def expand_prefectures(words: list[str]) -> list[str]:
+    """「宮崎」「福岡県」「九州」のような指定を、都道府県名の頭の部分のリストにする。"""
+    out = []
+    for word in words:
+        for w in word.replace("、", ",").replace("，", ",").split(","):
+            w = w.strip()
+            if w.endswith("地方"):
+                w = w[:-2]
+            if not w:
+                continue
+            if w in REGIONS:
+                out += REGIONS[w]
+            elif w != "北海道" and w[-1] in "都道府県":
+                out.append(w[:-1])
+            else:
+                out.append(w)
+    return out
+
+
+def in_prefectures(pref: str, wanted: list[str]) -> bool:
+    return any(pref.startswith(w) for w in wanted)
+
+
 def normalize_url(url: str) -> str:
     p = urlparse(url)
     return (p.netloc.lower().removeprefix("www.") + p.path.rstrip("/")).lower()
