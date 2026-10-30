@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from .config import normalize_name
+
 # 各入力欄の「見出し」に当たる文字列を集める（label, placeholder, name, 表の見出しなど）
 DESCRIBE_JS = r"""
 el => {
@@ -137,12 +139,39 @@ def build_values(sender: dict, subject: str, message: str) -> dict:
     }
 
 
-def page_warnings(page) -> list[str]:
+# 店名のうち、どのお店にも付く言葉（ページに店名があるかの確認では無視する）
+GENERIC_WORDS = [
+    "株式会社", "有限会社", "合同会社", "(株)", "(有)", "バイクショップ", "bikeshop", "モーターサイクル",
+    "motorcycles", "motorcycle", "モータース", "motors", "オートバイ", "バイク", "bike", "サイクル", "cycle",
+    "ショップ", "shop", "オート", "auto", "本店", "店",
+]
+
+
+def name_keys(names: list[str]) -> list[str]:
+    """店名から、ページ内を探すときの手がかりになる言葉を取り出す。"""
+    keys = []
+    for name in names:
+        name = re.sub(r"[（(][^（）()]*[）)]", " ", name or "")
+        for token in re.split(r"[\s　【】「」/／]+", name):
+            key = normalize_name(token)
+            for word in GENERIC_WORDS:
+                key = key.replace(normalize_name(word), "")
+            if len(key) >= 2:
+                keys.append(key)
+    return keys
+
+
+def page_warnings(page, names: list[str] | None = None) -> list[str]:
     warnings = []
     try:
         body = page.inner_text("body", timeout=5000)
     except Exception:
         body = ""
+    keys = name_keys(names or [])
+    if keys and body:
+        text = normalize_name(body + (page.title() or ""))
+        if not any(k in text for k in keys):
+            warnings.append(f"このページに店名「{names[0]}」が見当たりません。別のお店のページかもしれません（g で検索できます）。")
     m = REFUSAL_RE.search(body)
     if m:
         warnings.append(f"営業お断りの記載があります：「{m.group(0)}」")

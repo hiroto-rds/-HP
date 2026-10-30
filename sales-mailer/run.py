@@ -16,7 +16,7 @@ import sys
 import time
 
 from salesmailer.config import load_config, missing_sender_fields
-from salesmailer.selection import Selector, expand_prefectures, in_prefectures
+from salesmailer.selection import Selector, expand_prefectures, in_prefectures, is_search_url
 from salesmailer.sheet import SheetClient
 from salesmailer.template import TemplateError, load_template, render_message
 
@@ -90,9 +90,9 @@ def cmd_check(cfg, args):
                 print(f"  ⚠ {name} → 一致する会社が見つかりません（店名の表記を確認してください）")
     for title, items in (("メール", mails), ("フォーム", forms)):
         if items:
-            print(f"\n▼ {title}（合計点の高い順・先頭10件）")
+            print(f"\n▼ {title}（先頭10件）")
             for lead, target in items[:10]:
-                print(f"  {lead.score:>4}点  {lead.label()}  {target}")
+                print(f"  {lead.score:>4}点  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
     missing = missing_sender_fields(cfg)
     if missing:
         print("\n⚠ config.toml の [sender] に「（要記入）」が残っています: " + ", ".join(missing))
@@ -166,13 +166,14 @@ def cmd_mail(cfg, args):
     print("\n完了しました。送信結果はスプレッドシートの送信ログタブに記録しています。")
 
 
-FORM_HELP = "Enter=送信した  s=スキップ  n=営業お断り（今後送らない）  r=今のページに入力し直す  q=終了"
+FORM_HELP = "Enter=送信した  s=スキップ  n=営業お断り（今後送らない）  r=今のページに入力し直す  g=Googleで探す  q=終了"
 
 
 def cmd_form(cfg, args):
     from playwright.sync_api import sync_playwright
 
     from salesmailer.form_filler import build_values, fill_page, page_warnings
+    from salesmailer.selection import search_url
 
     require_sender(cfg)
     sheet, leads, selector = connect(cfg, args)
@@ -215,7 +216,7 @@ def cmd_form(cfg, args):
                 print("今日の上限に達したので終了します。")
                 break
             print("=" * 60)
-            print(f"[{i}/{len(messages)}] {lead.label()}  {url}")
+            print(f"[{i}/{len(messages)}] {lead.label()}  {'（公式サイトの登録なし → Googleで検索）' if is_search_url(url) else url}")
             values = build_values(cfg["sender"], subject, body)
             try:
                 try:
@@ -231,17 +232,31 @@ def cmd_form(cfg, args):
                 if page.is_closed():
                     print("  ⚠ ブラウザが閉じられていたので開き直しました。")
                     page = open_url(url)
-                for w in page_warnings(page):
-                    print(f"  ⚠ {w}")
-                result = fill_page(page, values)
-                if result.filled:
-                    print("  入力した項目: " + "、".join(result.filled))
+                if is_search_url(page.url):
+                    print("  Googleでお店を検索しました。お店の公式サイトを開き、問い合わせページを表示してから r を押してください。")
+                    print("  見つからない場合や、問い合わせフォームがない場合は s を押してください。")
                 else:
-                    print("  ⚠ 入力欄が見つかりません。ブラウザで問い合わせページを開いてから r を押してください。")
-                for w in result.warnings:
-                    print(f"  ⚠ {w}")
-                print("  ※ 選択肢・チェックボックス・未入力の欄は、ブラウザで直接入力してください。")
+                    for w in page_warnings(page, [lead.shop_name, lead.get("company")]):
+                        print(f"  ⚠ {w}")
+                    result = fill_page(page, values)
+                    if result.filled:
+                        print("  入力した項目: " + "、".join(result.filled))
+                    else:
+                        print("  ⚠ 入力欄が見つかりません。ブラウザで問い合わせページを開いてから r を押してください。")
+                    for w in result.warnings:
+                        print(f"  ⚠ {w}")
+                    print("  ※ 選択肢・チェックボックス・未入力の欄は、ブラウザで直接入力してください。")
                 answer = input(f"  {FORM_HELP}\n  > ").strip().lower()
+                if answer == "g":
+                    try:
+                        page = live_page()
+                        page.goto(search_url(lead), wait_until="domcontentloaded", timeout=30000)
+                    except Exception as e:
+                        print(f"  ✗ Google検索を開けませんでした（{type(e).__name__}）")
+                    continue
+                if answer == "" and not page.is_closed() and is_search_url(page.url):
+                    print("  まだGoogle検索のページです。問い合わせページを開いて r、見つからなければ s を押してください。")
+                    continue
                 if answer != "r":
                     break
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from .config import load_exclude_names, normalize_name
 from .sheet import FINAL_RESULTS, Lead
@@ -66,7 +66,21 @@ PORTAL_DOMAINS = [
 ]
 
 
+def is_search_url(url: str) -> bool:
+    p = urlparse(url or "")
+    return "google." in p.netloc and p.path.startswith("/search")
+
+
+def search_url(lead: Lead) -> str:
+    """お店の公式サイトを探すための Google 検索の URL（店名＋都道府県・市区町村）。"""
+    shop = re.sub(r"[（(][^（）()]*[）)]", "", lead.shop_name).strip() or lead.shop_name
+    area = lead.prefecture + lead.values.get("市区町村", "").strip()
+    return "https://www.google.com/search?q=" + quote(f"{shop} {area}".strip())
+
+
 def normalize_url(url: str) -> str:
+    if is_search_url(url):
+        return url.lower()
     p = urlparse(url)
     return (p.netloc.lower().removeprefix("www.") + p.path.rstrip("/")).lower()
 
@@ -75,6 +89,7 @@ class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
+        self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", True)
         self.done_ids = set()
         self.done_targets = set()
         for e in log:
@@ -157,19 +172,20 @@ class Selector:
         return out
 
     def form_candidates(self, leads: list[Lead]) -> list[tuple[Lead, str]]:
+        """フォームで送る会社。公式フォームの URL がない会社は、Google 検索で探す（search_when_no_form）。"""
         out, seen = [], set()
         for lead in sorted(leads, key=lambda l: -l.score):
             if self.skip_reason(lead):
                 continue
             if self.f["form_only_when_no_email"] and self.email_for(lead):
                 continue
-            url = self.form_for(lead)
+            url = self.form_for(lead) or (search_url(lead) if self.search_when_no_form else "")
             key = normalize_url(url)
             if not url or key in self.done_targets or key in seen or lead.lead_id in seen:
                 continue
             seen.update({key, lead.lead_id})
             out.append((lead, url))
-        return out
+        return sorted(out, key=lambda c: is_search_url(c[1]))  # 公式フォームがある会社を先に
 
     def explain(self, leads: list[Lead]) -> list[tuple[Lead, str, str]]:
         """会社ごとに、メール・フォームそれぞれ送れるか（送れない理由）を返す。"""
@@ -190,7 +206,7 @@ class Selector:
             else:
                 mail = "同じアドレスに送信済み・送信予定"
             if id(lead) in form_ok:
-                form = "○ " + form_ok[id(lead)]
+                form = "○ Googleでお店のサイトを探す" if is_search_url(form_ok[id(lead)]) else "○ " + form_ok[id(lead)]
             elif self.f["form_only_when_no_email"] and self.email_for(lead):
                 form = "メールで送るため対象外"
             elif not extract_url(lead.get("form_url")):
