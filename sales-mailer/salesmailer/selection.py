@@ -67,8 +67,9 @@ PORTAL_DOMAINS = [
 
 
 def is_search_url(url: str) -> bool:
-    p = urlparse(url or "")
-    return "google." in p.netloc and p.path.startswith("/search")
+    """Google のページか（検索結果のほか、同意画面・ロボット確認画面などに転送された場合も含む）。"""
+    host = urlparse(url or "").netloc.lower()
+    return host.startswith(("google.", "www.google.", "consent.google.")) or ".google." in host
 
 
 def search_url(lead: Lead) -> str:
