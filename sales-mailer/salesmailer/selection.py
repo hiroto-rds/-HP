@@ -59,6 +59,13 @@ def in_prefectures(pref: str, wanted: list[str]) -> bool:
     return any(pref.startswith(w) for w in wanted)
 
 
+# お店の公式フォームではない、ポータルサイト・SNS など（config.toml の skip_form_domains に加えて使わない）
+PORTAL_DOMAINS = [
+    "goobike.com", "bikebros.co.jp", "webike.net", "hondago-bikerental.jp", "rental819.com",
+    "instagram.com", "facebook.com", "x.com", "twitter.com", "line.me", "google.com",
+]
+
+
 def normalize_url(url: str) -> str:
     p = urlparse(url)
     return (p.netloc.lower().removeprefix("www.") + p.path.rstrip("/")).lower()
@@ -132,7 +139,7 @@ class Selector:
         if not url:
             return ""
         host = urlparse(url).netloc.lower()
-        if any(host == d or host.endswith("." + d) for d in self.f["skip_form_domains"]):
+        if any(host == d or host.endswith("." + d) for d in PORTAL_DOMAINS + self.f["skip_form_domains"]):
             return ""
         return url
 

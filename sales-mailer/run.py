@@ -186,13 +186,30 @@ def cmd_form(cfg, args):
         sys.exit("フォーム送信の対象がありません。")
     print(f"\nフォーム送信の対象は {len(messages)} 件です（今日はあと {remaining} 件まで）。")
     print("ブラウザが開いたら、入力内容を確認して自分で送信ボタンを押してください。")
+    print("送信したらブラウザは閉じずに、ターミナルに戻ってキーを押してください。")
     print(f"操作: {FORM_HELP}\n")
 
     sent = 0
     with sync_playwright() as p:
         channel = cfg["form"].get("browser_channel") or None
-        browser = p.chromium.launch(headless=False, channel=channel)
-        page = browser.new_page(viewport={"width": 1200, "height": 900})
+        browser = page = None
+
+        def live_page():
+            """ブラウザのウィンドウやタブが閉じられていたら、開き直す。"""
+            nonlocal browser, page
+            if browser is None or not browser.is_connected():
+                browser = p.chromium.launch(headless=False, channel=channel)
+                page = None
+            if page is None or page.is_closed():
+                page = browser.new_page(viewport={"width": 1200, "height": 900})
+            return page
+
+        def open_url(url):
+            page = live_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.wait_for_timeout(1500)
+            return page
+
         for i, (lead, url, subject, body) in enumerate(messages, start=1):
             if sent >= remaining:
                 print("今日の上限に達したので終了します。")
@@ -201,14 +218,19 @@ def cmd_form(cfg, args):
             print(f"[{i}/{len(messages)}] {lead.label()}  {url}")
             values = build_values(cfg["sender"], subject, body)
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                page.wait_for_timeout(1500)
+                try:
+                    page = open_url(url)
+                except Exception:
+                    page = open_url(url)  # 閉じられたウィンドウを開き直して、もう一度だけ試す
             except Exception as e:
                 print(f"  ✗ ページを開けませんでした（{type(e).__name__}）")
                 sheet.record(lead, "フォーム", "エラー", url, "ページを開けない")
                 continue
 
             while True:
+                if page.is_closed():
+                    print("  ⚠ ブラウザが閉じられていたので開き直しました。")
+                    page = open_url(url)
                 for w in page_warnings(page):
                     print(f"  ⚠ {w}")
                 result = fill_page(page, values)
@@ -236,7 +258,8 @@ def cmd_form(cfg, args):
                 sheet.record(lead, "フォーム", "送信済み", page.url)
                 sent += 1
                 print("  → 送信済みとして記録しました")
-        browser.close()
+        if browser is not None and browser.is_connected():
+            browser.close()
     print(f"\n今回フォームで送信した件数: {sent} 件")
 
 
