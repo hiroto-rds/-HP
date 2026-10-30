@@ -90,7 +90,7 @@ class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
-        self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", True)
+        self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
         self.done_ids = set()
         self.done_targets = set()
         for e in log:

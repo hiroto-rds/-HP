@@ -172,7 +172,7 @@ FORM_HELP = "Enter=送信した  s=スキップ  n=営業お断り（今後送�
 def cmd_form(cfg, args):
     from playwright.sync_api import sync_playwright
 
-    from salesmailer.form_filler import build_values, fill_page, page_warnings
+    from salesmailer.form_filler import build_values, fill_page, find_captcha, page_warnings
     from salesmailer.selection import search_url
 
     require_sender(cfg)
@@ -228,10 +228,17 @@ def cmd_form(cfg, args):
                 sheet.record(lead, "フォーム", "エラー", url, "ページを開けない")
                 continue
 
+            answer = ""
             while True:
                 if page.is_closed():
                     print("  ⚠ ブラウザが閉じられていたので開き直しました。")
                     page = open_url(url)
+                captcha = None if is_search_url(page.url) else find_captcha(page)
+                if captcha:
+                    print(f"  → 画像認証（{captcha}）があるため、送らずにスキップしました")
+                    sheet.record(lead, "フォーム", "画像認証あり", page.url, captcha)
+                    answer = "captcha"
+                    break
                 if is_search_url(page.url):
                     print("  Googleでお店を検索しました。お店の公式サイトを開き、問い合わせページを表示してから r を押してください。")
                     print("  見つからない場合や、問い合わせフォームがない場合は s を押してください。")
@@ -260,6 +267,8 @@ def cmd_form(cfg, args):
                 if answer != "r":
                     break
 
+            if answer == "captcha":
+                continue
             if answer == "q":
                 print("終了します。")
                 break
@@ -282,8 +291,10 @@ def main():
     parser = argparse.ArgumentParser(description="スプレッドシートの会社リストに営業メール・フォームを送るツール")
     sub = parser.add_subparsers(dest="command", required=True)
     pref_help = "都道府県・地方で絞り込む（例: --pref 宮崎 福岡 / --pref 九州）"
+    search_help = "公式フォームの登録がない会社も、Google検索で探して対象にする"
     p = sub.add_parser("check", help="送信対象の件数を確認する")
     p.add_argument("--pref", nargs="+", help=pref_help)
+    p.add_argument("--search", action="store_true", help=search_help)
     p = sub.add_parser("preview", help="メール文面を確認する（送信しない）")
     p.add_argument("-n", type=int, default=3, help="表示する件数")
     p.add_argument("--pref", nargs="+", help=pref_help)
@@ -296,9 +307,12 @@ def main():
     p = sub.add_parser("form", help="フォームを半自動で入力する")
     p.add_argument("--limit", type=int, help="今回送る件数の上限")
     p.add_argument("--pref", nargs="+", help=pref_help)
+    p.add_argument("--search", action="store_true", help=search_help)
     args = parser.parse_args()
 
     cfg = load_config()
+    if getattr(args, "search", False):
+        cfg["form"]["search_when_no_form"] = True
     commands = {"check": cmd_check, "preview": cmd_preview, "test-mail": cmd_test_mail, "mail": cmd_mail, "form": cmd_form}
     try:
         commands[args.command](cfg, args)

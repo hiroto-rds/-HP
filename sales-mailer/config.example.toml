@@ -63,8 +63,9 @@ template = "templates/email.txt"
 # 1日にフォームで送る上限
 daily_limit = 50
 template = "templates/form.txt"
-# 公式の問い合わせフォームが登録されていない会社も、Google検索でお店のサイトを探して対象にする
-search_when_no_form = true
+# true にすると、公式の問い合わせフォームが登録されていない会社も、Google検索でお店のサイトを探して対象にする
+# （false のままでも、python3 run.py form --search で実行すればその回だけ対象にできます）
+search_when_no_form = false
 # "chrome" にすると Mac にインストール済みの Google Chrome を使います。
 # 空 "" のままなら Playwright 付属のブラウザを使います。
 browser_channel = "chrome"

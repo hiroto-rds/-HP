@@ -71,7 +71,6 @@ REFUSAL_RE = re.compile(
     r"(営業|セールス|売り込み|勧誘|広告)[^。\n]{0,30}"
     r"(お断り|ご遠慮|禁止|控え|受け付けて(い)?ません|お受けして(い)?ません|対応(いた)?しかね|返信(いた)?しません|お答えできません)"
 )
-CAPTCHA_RE = re.compile(r"recaptcha|hcaptcha|turnstile|captcha", re.I)
 
 LABELS = {
     "company": "会社名", "name": "お名前", "kana": "フリガナ", "email": "メール", "email_confirm": "メール(確認)",
@@ -175,9 +174,45 @@ def page_warnings(page, names: list[str] | None = None) -> list[str]:
     m = REFUSAL_RE.search(body)
     if m:
         warnings.append(f"営業お断りの記載があります：「{m.group(0)}」")
-    if any(CAPTCHA_RE.search(f.url or "") for f in page.frames):
-        warnings.append("画像認証（reCAPTCHA など）があります。必要ならブラウザで操作してください。")
     return warnings
+
+
+CAPTCHA_FIELD_RE = re.compile(r"captcha|画像認証|認証コード|画像の文字|表示されている文字|確認コード|セキュリティコード", re.I)
+
+
+def find_captcha(page) -> str | None:
+    """人が操作しないと送れない画像認証があれば、その種類を返す。
+
+    画面に出ない reCAPTCHA v3（右下のバッジだけのもの）は、そのまま送れるので対象外。
+    """
+    for frame in page.frames:
+        url = (frame.url or "").lower()
+        if "recaptcha" in url and "anchor" in url and "size=invisible" not in url:
+            return "reCAPTCHA（私はロボットではありません）"
+        if "recaptcha" in url and "bframe" in url:
+            continue
+        if "hcaptcha" in url and "checkbox" in url:
+            return "hCaptcha"
+        if "challenges.cloudflare.com" in url:
+            try:
+                box = frame.frame_element().bounding_box()
+            except Exception:
+                box = None
+            if box and box["width"] > 50 and box["height"] > 30:
+                return "Cloudflare（私はロボットではありません）"
+    for frame in page.frames:
+        try:
+            handles = frame.query_selector_all("input")
+        except Exception:
+            continue
+        for h in handles:
+            try:
+                info = h.evaluate(DESCRIBE_JS)
+            except Exception:
+                continue
+            if info["visible"] and info["type"] in ("", "text") and CAPTCHA_FIELD_RE.search(info["text"]):
+                return "画像の文字を入力する認証"
+    return None
 
 
 def fill_page(page, values: dict) -> FillResult:
