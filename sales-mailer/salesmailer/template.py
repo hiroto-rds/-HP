@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import re
 
-from .config import resolve_path
+from .config import normalize_name, resolve_path
 from .sheet import Lead
 
 PLACEHOLDER_RE = re.compile(r"\{([^{}\n]+)\}")
-# 「株式会社山儀（サイト表示: 株式会社ヤマギ）」のような調査メモの括弧書きを取り除く
-NOTE_RE = re.compile(r"[（(][^（）()]*[:：][^（）()]*[）)]")
+# 「株式会社山儀（サイト表示: 株式会社ヤマギ）」「〇〇（法人格未確認）」のような調査メモの括弧書き
+NOTE_RE = re.compile(r"[（(][^（）()]*(?:[:：]|未確認|確認中|要確認|不明|推定|表示|調査)[^（）()]*[）)]")
+PAREN_RE = re.compile(r"[（(][^（）()]*[）)]")
 
 
 class TemplateError(Exception):
@@ -20,7 +21,22 @@ class TemplateError(Exception):
 
 
 def clean_name(text: str) -> str:
+    """店名から調査メモの括弧書きを取り除く（「アオキ（AOKI）」のような読みの括弧は残す）。"""
     return NOTE_RE.sub("", text or "").strip()
+
+
+def clean_company(text: str) -> str:
+    """会社名（公開運営主体）は、括弧書きをすべて取り除く。"""
+    return PAREN_RE.sub("", text or "").strip()
+
+
+def addressee(company: str, shop: str) -> str:
+    """宛先の会社名・店名。同じ名前（会社名が店名に含まれる場合も）なら1つだけにする。"""
+    if not company or normalize_name(company) in normalize_name(shop):
+        return shop
+    if not shop or normalize_name(shop) in normalize_name(company):
+        return company
+    return f"{company}\n{shop}"
 
 
 def load_template(path: str) -> tuple[str, str]:
@@ -34,13 +50,13 @@ def load_template(path: str) -> tuple[str, str]:
 
 def build_context(lead: Lead, sender: dict) -> dict:
     shop = clean_name(lead.shop_name)
-    company = clean_name(lead.get("company"))
+    company = clean_company(lead.get("company"))
     ctx = dict(lead.values)
     ctx.update({
         "店名": shop,
         "会社名": company or shop,
-        "宛先名": f"{company}\n{shop}" if company and company not in shop else shop,
-        "宛名": f"{company}\n{shop} ご担当者様" if company and company not in shop else f"{shop} ご担当者様",
+        "宛先名": addressee(company, shop),
+        "宛名": addressee(company, shop) + " ご担当者様",
         "送信者会社名": sender["company"],
         "送信者姓": sender["last_name"],
         "送信者氏名": f"{sender['last_name']} {sender['first_name']}",
