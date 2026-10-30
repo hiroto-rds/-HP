@@ -72,6 +72,13 @@ def cmd_check(cfg, args):
         print("\n▼ 都道府県ごとの送信対象")
         for pref, (m, f) in sorted(counts.items(), key=lambda kv: -sum(kv[1])):
             print(f"  {pref}　メール {m} 件 / フォーム {f} 件")
+    if args.pref:
+        print("\n▼ 会社ごとの状況（メール / フォーム）")
+        for lead, mail, form in selector.explain(leads):
+            if mail == form:
+                print(f"  {lead.label()}\n      送らない：{mail}")
+            else:
+                print(f"  {lead.label()}\n      メール：{mail}\n      フォーム：{form}")
     if selector.excludes and not args.pref:
         print("\n▼ 送らない会社リスト（exclude.txt）で除外")
         for name, _ in selector.excludes:

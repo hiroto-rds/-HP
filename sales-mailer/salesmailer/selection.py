@@ -163,3 +163,34 @@ class Selector:
             seen.update({key, lead.lead_id})
             out.append((lead, url))
         return out
+
+    def explain(self, leads: list[Lead]) -> list[tuple[Lead, str, str]]:
+        """会社ごとに、メール・フォームそれぞれ送れるか（送れない理由）を返す。"""
+        mail_ok = {id(l): t for l, t in self.email_candidates(leads)}
+        form_ok = {id(l): t for l, t in self.form_candidates(leads)}
+        out = []
+        for lead in sorted(leads, key=lambda l: -l.score):
+            reason = self.skip_reason(lead)
+            if reason:
+                out.append((lead, reason, reason))
+                continue
+            if id(lead) in mail_ok:
+                mail = "○ " + mail_ok[id(lead)]
+            elif not extract_email(lead.get("email")):
+                mail = "メールアドレスなし"
+            elif not self.email_for(lead):
+                mail = f"メール採用判定が「{lead.get('email_adoption') or '空欄'}」"
+            else:
+                mail = "同じアドレスに送信済み・送信予定"
+            if id(lead) in form_ok:
+                form = "○ " + form_ok[id(lead)]
+            elif self.f["form_only_when_no_email"] and self.email_for(lead):
+                form = "メールで送るため対象外"
+            elif not extract_url(lead.get("form_url")):
+                form = "フォームURLなし"
+            elif not self.form_for(lead):
+                form = "ポータルサイト等のため使わない"
+            else:
+                form = "同じフォームに送信済み・送信予定"
+            out.append((lead, mail, form))
+        return out
