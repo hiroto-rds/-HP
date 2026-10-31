@@ -346,16 +346,22 @@ cp -R ~/Documents/sales-mailer ~/Documents/sales-mailer-backup-$(date +%Y%m%d-%H
 rm -rf ~/Downloads/sales-mailer-update && mkdir -p ~/Downloads/sales-mailer-update && curl -L -o ~/Downloads/sales-mailer-update/update.zip https://github.com/hiroto-rds/-HP/archive/refs/heads/claude/awesome-hawking-im5t49.zip && unzip -q ~/Downloads/sales-mailer-update/update.zip -d ~/Downloads/sales-mailer-update
 ```
 
+ダウンロードしたフォルダに移動します。
+
+```bash
+cd ~/Downloads/sales-mailer-update/*/sales-mailer
+```
+
 プログラムを上書きします（設定ファイル・認証・送らない会社リスト・文面は上書きしません）。
 
 ```bash
-rsync -av --exclude config.toml --exclude config.mfarm.toml --exclude credentials --exclude .venv --exclude 'exclude*.txt' --exclude templates ~/Downloads/sales-mailer-update/*/sales-mailer/ ~/Documents/sales-mailer/
+cp -R run.py requirements.txt README.md config.example.toml config.mfarm.example.toml salesmailer ~/Documents/sales-mailer/
 ```
 
-新しく増えたファイル（エムファーム用の文面など）だけを追加します（今あるファイルはそのままです）。
+新しく増えた文面（エムファーム用など）だけを追加します（今ある文面はそのままです）。
 
 ```bash
-rsync -av --ignore-existing --exclude credentials --exclude .venv ~/Downloads/sales-mailer-update/*/sales-mailer/ ~/Documents/sales-mailer/
+cp -R -n templates ~/Documents/sales-mailer/
 ```
 
 最後に、必要な部品を更新します。
