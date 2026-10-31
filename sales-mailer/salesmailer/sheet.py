@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -15,6 +16,13 @@ LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "都道府�
 # この結果が記録された会社には、次回以降は送らない（「エラー」だけは再挑戦する）
 FINAL_RESULTS = {"送信済み", "スキップ", "営業お断り", "フォームなし", "画像認証あり"}
 
+# [columns] の見出しがないタブで代わりに使う見出し（元のリスト「モビリオ」タブなど）
+ALIASES = {
+    "shop_name": ["店名"],
+    "email": ["メールアドレス"],
+}
+PREF_RE = re.compile(r"(東京都|北海道|京都府|大阪府|[^\s都道府県]{2,3}県)")
+
 
 @dataclass
 class Lead:
@@ -22,14 +30,28 @@ class Lead:
     row: int  # スプレッドシート上の行番号（1始まり）
     values: dict = field(repr=False)
     cols: dict = field(repr=False)  # [columns] の設定
+    header_row: int = 1  # 見出しの行番号
+    linked: "Lead | None" = field(default=None, repr=False)  # 元のリストの行に対応する、01タブなどの行
+    source: "Lead | None" = field(default=None, repr=False)  # 01タブなどの行に対応する、元のリストの行
+
+    def column(self, key: str) -> str | None:
+        """[columns] のキー名（shop_name など）に当たる、このタブの見出し名。"""
+        for name in [self.cols.get(key, "")] + ALIASES.get(key, []):
+            if name and name in self.values:
+                return name
+        return None
+
+    def has(self, key: str) -> bool:
+        return self.column(key) is not None
 
     def get(self, key: str) -> str:
         """[columns] のキー名（shop_name など）で値を取り出す。"""
-        return self.values.get(self.cols.get(key, ""), "").strip()
+        name = self.column(key)
+        return self.values[name].strip() if name else ""
 
     @property
     def lead_id(self) -> str:
-        return self.get("lead_id") or f"{self.tab}!{self.row}"
+        return self.get("lead_id") or (self.linked.lead_id if self.linked else f"{self.tab}!{self.row}")
 
     @property
     def shop_name(self) -> str:
@@ -40,11 +62,15 @@ class Lead:
         try:
             return int(float(self.get("score")))
         except ValueError:
-            return -1
+            return self.linked.score if self.linked else -1
 
     @property
     def prefecture(self) -> str:
-        return self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+        pref = self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+        if not pref:
+            m = PREF_RE.match(self.values.get("住所", "").strip())
+            pref = m.group(1) if m else (self.linked.prefecture if self.linked else "")
+        return pref
 
     def label(self) -> str:
         pref = self.prefecture
@@ -109,18 +135,48 @@ class SheetClient:
                 print(f"⚠ タブ「{tab}」が見つからないため読み飛ばします。")
                 continue
             rows = ws.get_all_values()
-            if not rows:
+            head = self._header_index(rows)
+            if head is None:
+                print(f"⚠ タブ「{tab}」に店名の見出しが見つからないため読み飛ばします。")
                 continue
-            header = [h.strip() for h in rows[0]]
-            for i, row in enumerate(rows[1:], start=2):
+            header = [h.strip() for h in rows[head]]
+            for i, row in enumerate(rows[head + 1:], start=head + 2):
                 values = {}
                 for h, v in zip(header, row):
                     if h and h not in values:
                         values[h] = v
-                if not any(v.strip() for v in values.values()):
-                    continue
-                leads.append(Lead(tab=tab, row=i, values=values, cols=self.cols))
+                lead = Lead(tab=tab, row=i, values=values, cols=self.cols, header_row=head + 1)
+                if lead.shop_name:  # 「宮崎」のような地域の区切り行や空行は読み飛ばす
+                    leads.append(lead)
+        self._link_source_rows(leads)
         return leads
+
+    def _header_index(self, rows: list[list[str]]) -> int | None:
+        """店名の見出しがある行（上から5行以内）。モビリオタブのように2行目が見出しのタブもある。"""
+        names = {self.cols.get("shop_name", "")} | set(ALIASES["shop_name"])
+        for i, row in enumerate(rows[:5]):
+            if names & {c.strip() for c in row}:
+                return i
+        return None
+
+    def _link_source_rows(self, leads: list[Lead]) -> None:
+        """元のリスト（モビリオ タブ）の行と、それを調べ直した 01 タブなどの行（「元シート行」）を結びつける。
+
+        同じ店に二重に送らないよう、結びついた行はリードIDと対象判定などの条件を共有する。
+        """
+        source_tab = self.cfg["sheet"].get("source_tab", "モビリオ")
+        by_row = {}
+        for lead in leads:
+            if lead.tab == source_tab:
+                continue
+            try:
+                by_row.setdefault(int(float(lead.values.get("元シート行", ""))), lead)
+            except ValueError:
+                pass
+        for lead in leads:
+            if lead.tab == source_tab and lead.row in by_row:
+                lead.linked = by_row[lead.row]
+                lead.linked.source = lead
 
     def log_ws(self):
         if self._log_ws is None:
@@ -162,12 +218,14 @@ class SheetClient:
         ws = self.log_ws()
         ws.append_row([entry.get(h, "") for h in self._log_header], value_input_option="RAW")
         if result == "送信済み":
-            self._mark_contacted(lead, method, now[:10])
+            # 01タブと元のリスト（モビリオ タブ）の両方の「最終コンタクト」を更新する
+            for target_lead in filter(None, [lead, lead.linked, lead.source]):
+                self._mark_contacted(target_lead, method, now[:10])
         return entry
 
     def _mark_contacted(self, lead: Lead, method: str, date: str) -> None:
         ws = self.book.worksheet(lead.tab)
-        header = [h.strip() for h in ws.row_values(1)]
+        header = [h.strip() for h in ws.row_values(lead.header_row)]
         row = self._locate_row(ws, header, lead)
         if row is None:
             print(f"  ⚠ 「{lead.tab}」で {lead.lead_id} の行が見つからず、最終コンタクトを更新できませんでした。")
@@ -193,16 +251,21 @@ class SheetClient:
             )
 
     def _col(self, header: list[str], key: str) -> int | None:
-        name = self.cols.get(key, "")
-        return header.index(name) + 1 if name in header else None
+        for name in [self.cols.get(key, "")] + ALIASES.get(key, []):
+            if name and name in header:
+                return header.index(name) + 1
+        return None
 
     def _locate_row(self, ws, header: list[str], lead: Lead) -> int | None:
-        """読み込み後に行の並べ替え・挿入があっても正しい行に書くため、リードIDで行を探し直す。"""
-        id_col = self._col(header, "lead_id")
-        if id_col is None or not lead.get("lead_id"):
+        """読み込み後に行の並べ替え・挿入があっても正しい行に書くため、リードID（なければ店名）で行を探し直す。"""
+        key = "lead_id" if lead.get("lead_id") else "shop_name"
+        col = self._col(header, key)
+        if col is None:
             return lead.row
-        ids = ws.col_values(id_col)
-        for i, v in enumerate(ids, start=1):
-            if v.strip() == lead.get("lead_id"):
+        values = [v.strip() for v in ws.col_values(col)]
+        if len(values) >= lead.row and values[lead.row - 1] == lead.get(key):
+            return lead.row
+        for i, v in enumerate(values, start=1):
+            if i > lead.header_row and v == lead.get(key):
                 return i
         return None

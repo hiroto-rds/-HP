@@ -115,12 +115,20 @@ class Selector:
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
-        judgement = lead.get("judgement")
-        if f["allowed_judgements"] and judgement not in f["allowed_judgements"]:
-            return f"対象判定が「{judgement or '空欄'}」"
-        if f["required_list_state"] and lead.get("list_state") != f["required_list_state"]:
+        # 「対象判定」などの列がないタブ（モビリオ タブ）は、同じ店の 01 タブなどの行で判定する
+        def source(key):
+            if lead.has(key):
+                return lead
+            return lead.linked if lead.linked and lead.linked.has(key) else None
+
+        src = source("judgement")
+        if src and f["allowed_judgements"] and src.get("judgement") not in f["allowed_judgements"]:
+            return f"対象判定が「{src.get('judgement') or '空欄'}」"
+        src = source("list_state")
+        if src and f["required_list_state"] and src.get("list_state") != f["required_list_state"]:
             return "リスト状態が対象外"
-        status = lead.get("business_status")
+        src = source("business_status")
+        status = src.get("business_status") if src else ""
         if any(k in status for k in f["skip_business_status_keywords"]):
             return f"営業状態が「{status}」"
         remarks = lead.get("remarks")
