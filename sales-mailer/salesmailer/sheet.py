@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -9,6 +10,8 @@ from .config import resolve_path
 
 # OAuth でログインしたあとの許可情報を保存するファイル（設定ファイルの token_file で変更できる）
 DEFAULT_TOKEN_FILE = "credentials/token.json"
+
+PREF_RE = re.compile(r"北海道|東京都|京都府|大阪府|[^\s都道府県]{2,3}県")
 
 LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "都道府県", "宛先", "タブ", "メモ"]
 
@@ -41,14 +44,26 @@ class Lead:
 
     @property
     def score(self) -> int:
+        """点数の高い会社から送る。「A」「B」のような優先度の場合は A が一番高い。"""
+        value = self.get("score")
         try:
-            return int(float(self.get("score")))
+            return int(float(value))
         except ValueError:
-            return -1
+            return {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}.get(value[:1].upper(), -1)
+
+    def score_label(self) -> str:
+        value = self.get("score")
+        try:
+            return f"{int(float(value))}点"
+        except ValueError:
+            return value or "-"
 
     @property
     def prefecture(self) -> str:
-        return self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+        """都道府県。「鹿児島県阿久根市」のような住所の列なら、都道府県の部分だけを取り出す。"""
+        value = self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+        m = PREF_RE.match(value)
+        return m.group(0) if m else value
 
     def label(self) -> str:
         pref = self.prefecture

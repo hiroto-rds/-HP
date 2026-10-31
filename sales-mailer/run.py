@@ -134,7 +134,7 @@ def cmd_check(cfg, args):
         if items:
             print(f"\n▼ {title}（先頭10件）")
             for lead, target in items[:10]:
-                print(f"  {lead.score:>4}点  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
+                print(f"  {lead.score_label():>4}  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
     missing = missing_sender_fields(cfg)
     if missing:
         print(f"\n⚠ {cfg['_file']} の [sender] に「（要記入）」が残っています: " + ", ".join(missing))

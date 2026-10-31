@@ -127,6 +127,11 @@ class Selector:
         remarks = lead.get("remarks")
         if any(k in remarks for k in f["skip_remarks_keywords"]):
             return "備考に送信不可の記載あり"
+        # [filter.skip_when]：「列の見出し = [この言葉が入っていたら送らない]」
+        for col, words in f.get("skip_when", {}).items():
+            value = lead.values.get(col, "").strip()
+            if value and any(w in value for w in words):
+                return f"{col}が「{value}」"
         if f["skip_already_contacted"]:
             count = lead.get("approach_count")
             if (count and count not in ("0", "0.0")) or lead.get("last_contact"):

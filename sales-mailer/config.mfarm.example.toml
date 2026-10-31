@@ -1,4 +1,4 @@
-# エムファーム用の設定ファイル
+# エムファーム用の設定ファイル（魚の仕入れ先へのお見積り依頼）
 #
 # 初めて「python3 run.py check --config mfarm」を実行したとき、
 # このファイルが config.mfarm.toml としてコピーされます。
@@ -9,14 +9,12 @@
 # 送信ログもエムファームのスプレッドシートに記録されるので、1日の上限も会社ごとに数えます。
 
 [sheet]
-# エムファームのスプレッドシートの URL を、そのまま貼り付けてください
-# 例: spreadsheet_id = "https://docs.google.com/spreadsheets/d/1AbC.../edit#gid=0"
-spreadsheet_id = "（要記入）"
+# MF_魚仕入れ先調査_真鯛カンパチブリ各5社_20261023（URL をそのまま貼っても大丈夫です）
+spreadsheet_id = "1Lrvfo_wp9_2xSyPyBcu7QMjoijeB9HMBLAGTdKbzT7I"
 # Google の認証ファイル（Mobirio と同じものを使います）
 credentials_file = "credentials/client_secret.json"
-# 送信対象にするタブ（シート）の名前。画面下のタブに表示されている名前をそのまま書きます。
-# 複数あるときは ["リスト1", "リスト2"] のように書きます。
-tabs = ["（要記入）"]
+# 送信対象にするタブ（1行目が見出しになっている「自動化_送信管理」タブを使います）
+tabs = ["自動化_送信管理"]
 # 送信履歴を記録するタブ（なければ自動で作成されます）
 log_tab = "92_送信ログ"
 # エムファーム用の送らない会社リスト（なければ自動で作成されます）
@@ -27,39 +25,27 @@ exclude_file = "exclude.mfarm.txt"
 token_file = "credentials/token.json"
 
 [columns]
-# スプレッドシート1行目の見出し名。
-# エムファームのスプレッドシートの見出しと違う場合は、右側の「" "」の中を書き換えてください。
-# python3 run.py check --config mfarm を実行すると、見つからない見出しが表示されます。
-#
-# ▼ 必ず合わせる見出し
-shop_name = "確認後店名"          # 会社名・店名の列
-email = "代表メール"              # メールアドレスの列
-form_url = "問い合わせフォーム"   # お問い合わせフォームの URL の列
-# ▼ あれば使う見出し（列がなければそのままで大丈夫です）
-lead_id = "リードID"              # 会社ごとの番号（なければ「タブ名!行番号」で管理します）
-company = "公開運営主体"          # 運営会社名
-prefecture = "都道府県"           # --pref で絞り込むときに使います
-judgement = "対象判定"
-business_status = "営業状態"
-list_state = "リスト状態"
-score = "合計点"                  # 点数の高い会社から送ります
-email_adoption = "メール採用判定"
-approach_count = "アプローチ回数"
-last_contact = "最終コンタクト"
+# 「自動化_送信管理」タブ1行目の見出し名
+lead_id = "企業ID"
+shop_name = "会社名"
+email = "送信先メールアドレス"
+form_url = "お問い合わせフォームURL"
+prefecture = "所在地"         # --pref 鹿児島 のように絞り込むときに使います
+score = "優先度"              # A → B → C の順に送ります
 remarks = "備考"
+# このタブにない列（空 "" のままにしておきます）
+company = ""
+judgement = ""
+business_status = ""
+list_state = ""
+email_adoption = ""
+approach_count = ""
+last_contact = ""
 
 [filter]
-# 「対象判定」がこのどれかの会社だけに送ります（その列がないタブでは使いません。[] にすると条件なし）
-allowed_judgements = ["対象", "要確認"]
-# 「リスト状態」がこの値の会社だけに送ります（その列がないタブでは使いません。"" にすると条件なし）
-required_list_state = "sales-ready"
-# 「メール採用判定」列があるタブでは、この値の会社だけにメールを送ります
-allowed_email_adoption = ["送信候補"]
-# 「営業状態」にこの言葉が入っている会社には送りません
-skip_business_status_keywords = ["閉店", "休業", "廃業", "移転"]
 # 「備考」にこの言葉が入っている会社には送りません（配信停止の連絡が来たら備考に「配信停止」と書く）
-skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り", "NG"]
-# 「アプローチ回数」や「最終コンタクト」が入っている会社（電話などで連絡済み）には送らない
+skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り"]
+# 「アプローチ回数」や「最終コンタクト」が入っている会社には送らない（このタブにはないので使いません）
 skip_already_contacted = false
 # true: メールアドレスがない会社だけフォームで送る / false: フォームがある会社はすべてフォーム対象
 form_only_when_no_email = true
@@ -67,9 +53,19 @@ form_only_when_no_email = true
 skip_form_domains = [
   "instagram.com", "facebook.com", "x.com", "twitter.com", "line.me", "google.com",
 ]
+# 以下はこのタブでは使いません
+allowed_judgements = []
+required_list_state = ""
+allowed_email_adoption = []
+skip_business_status_keywords = []
+
+# 列の値にこの言葉が入っている会社には送りません（「列の見出し」= ["言葉", ...]）
+[filter.skip_when]
+"送信拒否" = ["はい"]
+"送信ステータス" = ["送信済", "完了", "送信不可", "対象外", "辞退", "見送り"]
 
 [mail]
-# 1日に送る上限。新しいアドレスは迷惑メール扱いされやすいので、最初は少なめ（20通程度）がおすすめです。
+# 1日に送る上限
 daily_limit = 20
 # 1通ごとの待ち時間（秒）。この範囲でランダムに待ちます。
 interval_seconds = [60, 120]
@@ -88,14 +84,16 @@ browser_channel = "chrome"
 
 [sender]
 # エムファームの送信者情報。メール本文の署名・フォームへの自動入力に使います。
-company = "（要記入）"             # 例: 株式会社エムファーム
-last_name = "（要記入）"           # 姓
-first_name = "（要記入）"          # 名
-last_name_kana = "（要記入）"      # 姓（カタカナ）
-first_name_kana = "（要記入）"     # 名（カタカナ）
-# お名前.com のメールアドレス。Mac の「メール」アプリに追加したアドレスと同じものを書きます。
-email = "（要記入）"
-phone = "（要記入）"               # 例: 03-1234-5678
-zip = "（要記入）"                 # 例: 123-4567
-address = "（要記入）"
-url = ""                           # ホームページがあれば
+# 電話番号・郵便番号・住所は公開リポジトリに載せないよう、config.mfarm.toml にだけ書いてください。
+company = "株式会社エムファーム"
+last_name = "菊池"
+first_name = "裕人"
+last_name_kana = "キクチ"   # カタカナ
+first_name_kana = "ヒロト"  # カタカナ
+# お名前.com のメールアドレス（Mac の「メール」アプリに追加したアドレス）
+email = "h-kikuchi@mfarm.net"
+phone = "（要記入）"
+# 郵便番号・住所は空のままでも送れます（フォームの住所欄は、そのときブラウザで入力します）
+zip = ""
+address = ""
+url = "https://www.mfarm.net/"
