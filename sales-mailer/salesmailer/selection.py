@@ -83,6 +83,16 @@ def refusal(lead: Lead, columns: dict) -> str | None:
     return None
 
 
+def shop_key(lead_or_name, pref: str = "") -> str:
+    """同じ店かどうかを店名で判定するための文字列（括弧書き・空白・全角半角の違いを無視、都道府県つき）。"""
+    if isinstance(lead_or_name, Lead):
+        name, pref = lead_or_name.shop_name, lead_or_name.prefecture
+    else:
+        name = lead_or_name
+    name = normalize_name(re.sub(r"[（(][^（）()]*[）)]", "", name or ""))
+    return f"{pref}|{name}" if name else ""
+
+
 def is_search_url(url: str) -> bool:
     """Google のページか（検索結果のほか、同意画面・ロボット確認画面などに転送された場合も含む）。"""
     host = urlparse(url or "").netloc.lower()
@@ -111,11 +121,14 @@ class Selector:
         self.refusal_columns = self.f.get("refusal_columns", REFUSAL_COLUMNS)
         self.done_ids = set()
         self.done_targets = set()
+        self.done_names = set()  # 送信ログの店名（都道府県つき。都道府県が記録されていない古い行は店名だけ）
         for e in log:
             if e.get("結果") in FINAL_RESULTS:
                 self.done_ids.add(e.get("リードID", ""))
                 target = e.get("宛先", "")
                 self.done_targets.add(target.lower() if "@" in target else normalize_url(target))
+                self.done_names.add(shop_key(e.get("店名", ""), e.get("都道府県", "")))
+        self.done_names.discard("")
         self.log = log
 
     def sent_today(self, method: str) -> int:
@@ -130,6 +143,9 @@ class Selector:
         f = self.f
         if lead.lead_id in self.done_ids:
             return "送信ログに記録済み"
+        key = shop_key(lead)
+        if key and (key in self.done_names or shop_key(lead.shop_name) in self.done_names):
+            return "同じ店名の店に送信済み"
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
@@ -189,31 +205,34 @@ class Selector:
         return url
 
     def email_candidates(self, leads: list[Lead]) -> list[tuple[Lead, str]]:
+        """メールで送る会社。同じリードID・同じアドレス・同じ店名の会社には1回だけ送る。"""
         out, seen = [], set()
         for lead in sorted(leads, key=lambda l: -l.score):
             if self.skip_reason(lead):
                 continue
             email = self.email_for(lead)
-            key = email.lower()
-            if not email or key in self.done_targets or key in seen or lead.lead_id in seen:
+            keys = {email.lower(), lead.lead_id, shop_key(lead)} - {""}
+            if not email or email.lower() in self.done_targets or keys & seen:
                 continue
-            seen.update({key, lead.lead_id})
+            seen |= keys
             out.append((lead, email))
         return out
 
     def form_candidates(self, leads: list[Lead]) -> list[tuple[Lead, str]]:
         """フォームで送る会社。公式フォームの URL がない会社は、Google 検索で探す（search_when_no_form）。"""
-        out, seen = [], set()
+        # メールで送る店には、フォームでは送らない
+        seen = {k for l, _ in self.email_candidates(leads) for k in (l.lead_id, shop_key(l))} - {""}
+        out = []
         for lead in sorted(leads, key=lambda l: -l.score):
             if self.skip_reason(lead):
                 continue
             if self.f["form_only_when_no_email"] and self.email_for(lead):
                 continue
             url = self.form_for(lead) or (search_url(lead) if self.search_when_no_form else "")
-            key = normalize_url(url)
-            if not url or key in self.done_targets or key in seen or lead.lead_id in seen:
+            keys = {normalize_url(url), lead.lead_id, shop_key(lead)} - {""}
+            if not url or normalize_url(url) in self.done_targets or keys & seen:
                 continue
-            seen.update({key, lead.lead_id})
+            seen |= keys
             out.append((lead, url))
         return sorted(out, key=lambda c: is_search_url(c[1]))  # 公式フォームがある会社を先に
 
@@ -234,7 +253,7 @@ class Selector:
             elif not self.email_for(lead):
                 mail = f"メール採用判定が「{lead.get('email_adoption') or '空欄'}」"
             else:
-                mail = "同じアドレスに送信済み・送信予定"
+                mail = "同じ店・同じアドレスに送信済み・送信予定"
             if id(lead) in form_ok:
                 form = "○ Googleでお店のサイトを探す" if is_search_url(form_ok[id(lead)]) else "○ " + form_ok[id(lead)]
             elif self.f["form_only_when_no_email"] and self.email_for(lead):
@@ -244,6 +263,6 @@ class Selector:
             elif not self.form_for(lead):
                 form = "ポータルサイト等のため使わない"
             else:
-                form = "同じフォームに送信済み・送信予定"
+                form = "同じ店・同じフォームに送信済み・送信予定（メールで送る店を含む）"
             out.append((lead, mail, form))
         return out
