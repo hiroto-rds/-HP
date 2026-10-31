@@ -1,6 +1,7 @@
 # 営業メール・フォーム送信ツールの設定ファイル
 #
-# 初回の実行時に、このファイルが config.toml としてコピーされます。
+# Mobirio 用です。初回の実行時に、このファイルが config.toml としてコピーされます。
+# （エムファーム用は config.mfarm.example.toml → config.mfarm.toml です）
 # 編集するのは config.toml の方です（config.toml は Git には保存されません）。
 # 「（要記入）」の部分は必ず書き換えてください。残っていると送信できません。
 
@@ -14,6 +15,10 @@ credentials_file = "credentials/client_secret.json"
 tabs = ["04_全国拡張候補", "01_候補評価"]
 # 送信履歴を記録するタブ（なければ自動で作成されます）
 log_tab = "92_送信ログ"
+# 送らない会社のリスト（1行に1社）
+exclude_file = "exclude.txt"
+# Google にログインしたあとの許可情報（別の Google アカウントを使う設定では、別の名前にします）
+token_file = "credentials/token.json"
 
 [columns]
 # スプレッドシート1行目の見出し名。見出しを変えた場合はここも合わせて変えてください。

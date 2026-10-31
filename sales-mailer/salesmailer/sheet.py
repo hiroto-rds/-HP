@@ -7,8 +7,8 @@ from datetime import datetime
 
 from .config import resolve_path
 
-# OAuth でログインしたあとの許可情報を保存するファイル（credentials フォルダ内）
-TOKEN_FILE = "token.json"
+# OAuth でログインしたあとの許可情報を保存するファイル（設定ファイルの token_file で変更できる）
+DEFAULT_TOKEN_FILE = "credentials/token.json"
 
 LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "都道府県", "宛先", "タブ", "メモ"]
 
@@ -26,6 +26,10 @@ class Lead:
     def get(self, key: str) -> str:
         """[columns] のキー名（shop_name など）で値を取り出す。"""
         return self.values.get(self.cols.get(key, ""), "").strip()
+
+    def has(self, key: str) -> bool:
+        """[columns] のその列が、このタブにあるか。"""
+        return self.cols.get(key, "") in self.values
 
     @property
     def lead_id(self) -> str:
@@ -58,22 +62,24 @@ class SheetClient:
         self._gspread = gspread
         self.cfg = cfg
         self.cols = cfg["columns"]
-        gc, hint = self._authorize(gspread, resolve_path(cfg["sheet"]["credentials_file"]))
+        token = resolve_path(cfg["sheet"].get("token_file") or DEFAULT_TOKEN_FILE)
+        gc, hint = self._authorize(gspread, resolve_path(cfg["sheet"]["credentials_file"]), token)
         try:
             self.book = gc.open_by_key(cfg["sheet"]["spreadsheet_id"])
         except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.APIError) as e:
             raise SystemExit(f"スプレッドシートを開けませんでした。\n{hint}\n（詳細: {e}）")
         self._log_ws = None
+        self.headers: dict[str, list[str]] = {}  # タブごとの1行目の見出し
 
     @staticmethod
-    def _authorize(gspread, cred):
+    def _authorize(gspread, cred, token):
         """credentials フォルダの JSON の種類に合わせて、Google にログインする。
 
         - OAuth クライアント（デスクトップアプリ）: 初回だけブラウザで自分の Google アカウントにログイン
         - サービスアカウントの鍵: そのまま接続
         """
         if not cred.exists():
-            found = [p for p in cred.parent.glob("*.json") if p.name != TOKEN_FILE]
+            found = [p for p in cred.parent.glob("*.json") if not p.name.startswith("token")]
             if len(found) != 1:
                 raise SystemExit(
                     f"Google の認証ファイルが見つかりません: {cred}\n"
@@ -87,7 +93,6 @@ class SheetClient:
                 "スプレッドシートを「編集者」として共有してあるか確認してください。"
             )
         if "installed" in info or "web" in info:
-            token = cred.parent / TOKEN_FILE
             if not token.exists():
                 print("ブラウザが開くので、スプレッドシートを編集できる Google アカウントでログインし、「許可」を押してください。")
             gc = gspread.oauth(
@@ -112,6 +117,7 @@ class SheetClient:
             if not rows:
                 continue
             header = [h.strip() for h in rows[0]]
+            self.headers[tab] = header
             for i, row in enumerate(rows[1:], start=2):
                 values = {}
                 for h, v in zip(header, row):

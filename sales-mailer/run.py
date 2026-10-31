@@ -7,6 +7,7 @@
   python3 run.py mail [--limit 10]     メールを送信する（1日の上限まで）
   python3 run.py form [--limit 10]     フォームを半自動で入力する（送信ボタンは自分で押す）
   どのコマンドも --pref 宮崎 福岡（または --pref 九州）で都道府県ごとに絞り込めます
+  どのコマンドも --config mfarm を付けると、config.mfarm.toml の設定（エムファーム用など）で動きます
 """
 from __future__ import annotations
 
@@ -15,10 +16,16 @@ import random
 import sys
 import time
 
-from salesmailer.config import load_config, missing_sender_fields
+from salesmailer.config import PLACEHOLDER, exclude_path, load_config, missing_sender_fields
 from salesmailer.selection import Selector, expand_prefectures, in_prefectures, is_search_url
 from salesmailer.sheet import SheetClient
 from salesmailer.template import TemplateError, load_template, render_message
+
+
+def show_config(cfg):
+    """どの設定（どの会社として）で動いているかを毎回表示して、取り違えを防ぐ。"""
+    s = cfg["sender"]
+    print(f"■ 設定ファイル: {cfg['_file']}　送信者: {s.get('company', '')} {s.get('last_name', '')} <{s.get('email', '')}>")
 
 
 def connect(cfg, args=None):
@@ -39,13 +46,25 @@ def connect(cfg, args=None):
 def require_sender(cfg):
     missing = missing_sender_fields(cfg)
     if missing:
-        sys.exit("config.toml の [sender] に「（要記入）」が残っています: " + ", ".join(missing))
+        sys.exit(f"{cfg['_file']} の [sender] に「（要記入）」が残っています: " + ", ".join(missing))
+
+
+def require_mail_account(cfg):
+    """送信者アドレスが Mac の「メール」アプリに登録されているか、送る前に確認する。"""
+    from salesmailer.mac_mail import MailError, check_sender
+
+    try:
+        check_sender(cfg["sender"]["email"])
+    except MailError as e:
+        sys.exit(f"送信できません: {e}")
 
 
 def render_all(cfg, section, candidates):
     """送信前に全件の文面を作ってみて、差し込みミスがあれば送信を始めない。"""
     try:
         template = load_template(cfg[section]["template"])
+        if PLACEHOLDER in template[0] + template[1]:
+            raise TemplateError(f"{cfg[section]['template']} に「{PLACEHOLDER}」が残っています。件名と本文を書いてください。")
         return [(lead, target, *render_message(template, lead, cfg["sender"])) for lead, target in candidates]
     except TemplateError as e:
         sys.exit(f"文面テンプレートの問題: {e}")
@@ -57,11 +76,34 @@ def confirm(question: str) -> bool:
 
 # ---------------- コマンド ----------------
 
+# 会社名・メール・フォームの列は、見出しが合っていないと送信対象を正しく選べない
+REQUIRED_COLUMNS = ("shop_name", "email", "form_url")
+
+
+def warn_missing_columns(cfg, sheet):
+    """[columns] に書いた見出し名が、スプレッドシートに見当たらなければ知らせる。"""
+    if not sheet.headers:
+        print(f"⚠ 読み込めたタブがありません。{cfg['_file']} の [sheet] tabs のタブ名を確認してください。")
+        return
+    found = {h for header in sheet.headers.values() for h in header}
+    missing = {key: name for key, name in cfg["columns"].items() if name and name not in found}
+    required = [f"{k} =「{missing[k]}」" for k in REQUIRED_COLUMNS if k in missing]
+    optional = [f"「{n}」" for k, n in missing.items() if k not in REQUIRED_COLUMNS]
+    if required:
+        print(f"⚠ 次の見出しがスプレッドシートの1行目に見つかりません（{cfg['_file']} の [columns] を直してください）:")
+        for m in required:
+            print(f"    {m}")
+        print(f"  スプレッドシートの見出し: {'、'.join(h for h in next(iter(sheet.headers.values())) if h)}")
+    if optional:
+        print(f"（参考）次の列はスプレッドシートにないため使いません: {'、'.join(optional)}")
+
+
 def cmd_check(cfg, args):
-    _, leads, selector = connect(cfg, args)
+    sheet, leads, selector = connect(cfg, args)
     mails = selector.email_candidates(leads)
     forms = selector.form_candidates(leads)
     print(f"\n読み込んだ会社: {len(leads)} 件（タブ: {', '.join(cfg['sheet']['tabs'])}）")
+    warn_missing_columns(cfg, sheet)
     print(f"メール送信の対象: {len(mails)} 件（今日の送信済み {selector.sent_today('メール')} / 上限 {cfg['mail']['daily_limit']}）")
     print(f"フォーム送信の対象: {len(forms)} 件（今日の送信済み {selector.sent_today('フォーム')} / 上限 {cfg['form']['daily_limit']}）")
     counts: dict = {}
@@ -80,7 +122,7 @@ def cmd_check(cfg, args):
             else:
                 print(f"  {lead.label()}\n      メール：{mail}\n      フォーム：{form}")
     if selector.excludes and not args.pref:
-        print("\n▼ 送らない会社リスト（exclude.txt）で除外")
+        print(f"\n▼ 送らない会社リスト（{exclude_path(cfg).name}）で除外")
         for name, _ in selector.excludes:
             hits = [l for l in leads if selector.excluded_by(l) == name]
             if hits:
@@ -95,7 +137,7 @@ def cmd_check(cfg, args):
                 print(f"  {lead.score:>4}点  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
     missing = missing_sender_fields(cfg)
     if missing:
-        print("\n⚠ config.toml の [sender] に「（要記入）」が残っています: " + ", ".join(missing))
+        print(f"\n⚠ {cfg['_file']} の [sender] に「（要記入）」が残っています: " + ", ".join(missing))
 
 
 def cmd_preview(cfg, args):
@@ -112,6 +154,7 @@ def cmd_test_mail(cfg, args):
     from salesmailer.mac_mail import MailError, send_mail
 
     require_sender(cfg)
+    require_mail_account(cfg)
     _, leads, selector = connect(cfg)
     messages = render_all(cfg, "mail", selector.email_candidates(leads)[:1])
     if not messages:
@@ -128,6 +171,7 @@ def cmd_mail(cfg, args):
     from salesmailer.mac_mail import MailError, send_mail
 
     require_sender(cfg)
+    require_mail_account(cfg)
     sheet, leads, selector = connect(cfg, args)
     remaining = cfg["mail"]["daily_limit"] - selector.sent_today("メール")
     if args.limit is not None:
@@ -139,7 +183,7 @@ def cmd_mail(cfg, args):
         sys.exit("メール送信の対象がありません。")
 
     low, high = cfg["mail"]["interval_seconds"]
-    print(f"\n次の {len(messages)} 件にメールを送信します（1通ごとに {low}〜{high} 秒あけます）。")
+    print(f"\n次の {len(messages)} 件に、{cfg['sender']['email']} からメールを送信します（1通ごとに {low}〜{high} 秒あけます）。")
     for lead, email, _, _ in messages:
         print(f"  {lead.label()}  {email}")
     if not args.yes and not confirm("送信を始めますか？"):
@@ -288,29 +332,35 @@ def cmd_form(cfg, args):
 
 
 def main():
+    config_help = "使う設定ファイル（例: --config mfarm → config.mfarm.toml）。省略すると config.toml"
     parser = argparse.ArgumentParser(description="スプレッドシートの会社リストに営業メール・フォームを送るツール")
+    parser.add_argument("--config", "-c", help=config_help)
+    # --config はコマンドの前でも後ろでも書けるようにする（python3 run.py check --config mfarm でも可）
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--config", "-c", default=argparse.SUPPRESS, help=config_help)
     sub = parser.add_subparsers(dest="command", required=True)
     pref_help = "都道府県・地方で絞り込む（例: --pref 宮崎 福岡 / --pref 九州）"
     search_help = "公式フォームの登録がない会社も、Google検索で探して対象にする"
-    p = sub.add_parser("check", help="送信対象の件数を確認する")
+    p = sub.add_parser("check", parents=[common], help="送信対象の件数を確認する")
     p.add_argument("--pref", nargs="+", help=pref_help)
     p.add_argument("--search", action="store_true", help=search_help)
-    p = sub.add_parser("preview", help="メール文面を確認する（送信しない）")
+    p = sub.add_parser("preview", parents=[common], help="メール文面を確認する（送信しない）")
     p.add_argument("-n", type=int, default=3, help="表示する件数")
     p.add_argument("--pref", nargs="+", help=pref_help)
-    p = sub.add_parser("test-mail", help="自分宛てにテスト送信する")
+    p = sub.add_parser("test-mail", parents=[common], help="自分宛てにテスト送信する")
     p.add_argument("address", help="テストメールの宛先（自分のアドレス）")
-    p = sub.add_parser("mail", help="メールを送信する")
+    p = sub.add_parser("mail", parents=[common], help="メールを送信する")
     p.add_argument("--limit", type=int, help="今回送る件数の上限")
     p.add_argument("--yes", action="store_true", help="確認を省略して送信を始める")
     p.add_argument("--pref", nargs="+", help=pref_help)
-    p = sub.add_parser("form", help="フォームを半自動で入力する")
+    p = sub.add_parser("form", parents=[common], help="フォームを半自動で入力する")
     p.add_argument("--limit", type=int, help="今回送る件数の上限")
     p.add_argument("--pref", nargs="+", help=pref_help)
     p.add_argument("--search", action="store_true", help=search_help)
     args = parser.parse_args()
 
-    cfg = load_config()
+    cfg = load_config(args.config)
+    show_config(cfg)
     if getattr(args, "search", False):
         cfg["form"]["search_when_no_form"] = True
     commands = {"check": cmd_check, "preview": cmd_preview, "test-mail": cmd_test_mail, "mail": cmd_mail, "form": cmd_form}

@@ -59,7 +59,7 @@ def in_prefectures(pref: str, wanted: list[str]) -> bool:
     return any(pref.startswith(w) for w in wanted)
 
 
-# お店の公式フォームではない、ポータルサイト・SNS など（config.toml の skip_form_domains に加えて使わない）
+# お店の公式フォームではない、ポータルサイト・SNS など（設定ファイルの skip_form_domains に加えて使わない）
 PORTAL_DOMAINS = [
     "goobike.com", "bikebros.co.jp", "webike.net", "hondago-bikerental.jp", "rental819.com",
     "instagram.com", "facebook.com", "x.com", "twitter.com", "line.me", "google.com",
@@ -89,7 +89,7 @@ def normalize_url(url: str) -> str:
 class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
-        self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
+        self.excludes = [(name, normalize_name(name)) for name in load_exclude_names(cfg)]
         self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
         self.done_ids = set()
         self.done_targets = set()
@@ -115,10 +115,11 @@ class Selector:
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
+        # 「対象判定」「リスト状態」の列がないスプレッドシート（タブ）では、この条件は使わない
         judgement = lead.get("judgement")
-        if f["allowed_judgements"] and judgement not in f["allowed_judgements"]:
+        if f["allowed_judgements"] and lead.has("judgement") and judgement not in f["allowed_judgements"]:
             return f"対象判定が「{judgement or '空欄'}」"
-        if f["required_list_state"] and lead.get("list_state") != f["required_list_state"]:
+        if f["required_list_state"] and lead.has("list_state") and lead.get("list_state") != f["required_list_state"]:
             return "リスト状態が対象外"
         status = lead.get("business_status")
         if any(k in status for k in f["skip_business_status_keywords"]):
