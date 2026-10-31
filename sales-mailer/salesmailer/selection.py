@@ -66,6 +66,23 @@ PORTAL_DOMAINS = [
 ]
 
 
+# 電話でお断りされた店（モビリオ タブの「電話対応」「結果」）。config.toml の [filter] で変更できる
+REFUSAL_COLUMNS = {"電話対応": ["お断り"], "結果": [
+    "断り", "興味ない", "興味なし", "見送", "NG", "無理", "考えていない", "必要ない", "需要がない", "難しい",
+    "他社で進んでいる", "車両がない", "バイクがない", "しかやっていない",
+]}
+
+
+def refusal(lead: Lead, columns: dict) -> str | None:
+    """電話でお断りされた記録があれば、その内容を返す（01タブと元のリストの、同じ店の行も見る）。"""
+    for row in filter(None, [lead, lead.linked, lead.source]):
+        for col, words in columns.items():
+            value = row.values.get(col, "").strip()
+            if value and any(w in value for w in words):
+                return f"{col}：{value[:40]}"
+    return None
+
+
 def is_search_url(url: str) -> bool:
     """Google のページか（検索結果のほか、同意画面・ロボット確認画面などに転送された場合も含む）。"""
     host = urlparse(url or "").netloc.lower()
@@ -91,6 +108,7 @@ class Selector:
         self.f = cfg["filter"]
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
         self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
+        self.refusal_columns = self.f.get("refusal_columns", REFUSAL_COLUMNS)
         self.done_ids = set()
         self.done_targets = set()
         for e in log:
@@ -115,6 +133,9 @@ class Selector:
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
+        refused = refusal(lead, self.refusal_columns)
+        if refused:
+            return f"電話でお断り（{refused}）"
         # 「対象判定」などの列がないタブ（モビリオ タブ）は、同じ店の 01 タブなどの行で判定する
         def source(key):
             if lead.has(key):

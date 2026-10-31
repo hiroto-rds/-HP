@@ -79,6 +79,11 @@ def cmd_check(cfg, args):
                 print(f"  {lead.label()}\n      送らない：{mail}")
             else:
                 print(f"  {lead.label()}\n      メール：{mail}\n      フォーム：{form}")
+    refused = [l for l in leads if (r := selector.skip_reason(l)) and r.startswith("電話でお断り")]
+    if refused and not args.pref:
+        print(f"\n▼ 電話でお断りのため除外: {len(refused)} 件")
+        for l in refused:
+            print(f"  {l.label()}  {selector.skip_reason(l)[len('電話でお断り'):]}")
     if selector.excludes and not args.pref:
         print("\n▼ 送らない会社リスト（exclude.txt）で除外")
         for name, _ in selector.excludes:
