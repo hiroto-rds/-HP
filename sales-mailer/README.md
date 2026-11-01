@@ -1,11 +1,24 @@
 # 営業メール・フォーム送信ツール
 
-Google スプレッドシート（Mobirio_アタックリスト）の会社リストをもとに、次の2つを行うツールです。
+Google スプレッドシートの会社リストをもとに、次の2つを行うツールです。
+Mobirio 用（Mobirio_アタックリスト）とエムファーム用を、1つのフォルダのまま設定ファイルで切り替えて使えます
+（→「6. エムファーム用に使う」）。
 
 - **メール**：Mac の「メール」アプリから自動で送信します（1日の上限まで、間隔をあけて送信）
 - **お問い合わせフォーム**：ブラウザでフォームを開いて自動入力します。**送信ボタンは自分で押します**（半自動）
 
 送った結果はスプレッドシートに記録されるので、同じ会社に二重に送ることはありません。
+
+| | Mobirio | エムファーム |
+|---|---|---|
+| コマンド | `python3 run.py check` | `python3 run.py check --config mfarm` |
+| 設定ファイル | `config.toml` | `config.mfarm.toml` |
+| 文面 | `templates/email.txt`・`templates/form.txt` | `templates/mfarm/email.txt`・`templates/mfarm/form.txt` |
+| 送らない会社 | `exclude.txt` | `exclude.mfarm.txt` |
+
+この README のコマンドはすべて、後ろに ` --config mfarm` を付けるとエムファーム用になります。
+何も付けなければ、これまでどおり Mobirio 用です。
+実行すると最初の行に「■ 設定ファイル: 〜　送信者: 〜」と表示されるので、どちらの会社で動いているか確認してください。
 
 > ⚠ このフォルダはホームページ用ではありません。ホームページをサーバーにアップロードするときは、
 > `sales-mailer` フォルダはアップロードしないでください。
@@ -19,7 +32,7 @@ Google スプレッドシート（Mobirio_アタックリスト）の会社リ�
 Mac の「ターミナル」を開いて、このフォルダに移動します（フォルダをターミナルにドラッグすると場所が入力できます）。
 
 ```bash
-cd ~/Desktop/-HP/sales-mailer
+cd ~/Documents/sales-mailer
 ```
 
 ```bash
@@ -94,7 +107,7 @@ python3 run.py check
 | `{会社名}` | 公開運営主体（空なら店名） |
 | `{宛先名}` | 「会社名（改行）店名」。会社名が空、または店名に含まれる場合は店名だけ |
 | `{宛名}` | 「会社名＋店名 ご担当者様」 |
-| `{送信者会社名}` `{送信者姓}` `{送信者氏名}` `{送信者電話}` など | config.toml の [sender] の内容 |
+| `{送信者会社名}` `{送信者姓}` `{送信者名}` `{送信者氏名}` `{送信者電話}` `{送信者URL}` など | 設定ファイルの [sender] の内容 |
 | `{都道府県}` `{重点エリア}` など | スプレッドシートの見出し名をそのまま書くと、その列の値が入ります |
 
 特定電子メール法では、営業メールに送信者の住所と、受信を拒否できる旨・その連絡先を表示するよう定められています。文面を変えるときは注意してください。
@@ -106,7 +119,7 @@ python3 run.py check
 ターミナルでフォルダに移動し、準備した環境を有効にしてから使います。
 
 ```bash
-cd ~/Desktop/-HP/sales-mailer
+cd ~/Documents/sales-mailer
 ```
 
 ```bash
@@ -230,15 +243,161 @@ python3 run.py form
 問題なく届いているようであれば、`config.toml` の `[mail] daily_limit` を少しずつ増やしてください。
 上限を大きく増やす前に、ご利用のメールサーバー（エックスサーバーなど）の送信数制限も確認してください。
 
+## 6. エムファーム用に使う（--config mfarm）
+
+Mobirio 用の準備（1-1・1-2）が終わっていれば、エムファーム用の準備は次の4つだけです。
+Python・Google の認証ファイルは Mobirio と共通なので、入れ直す必要はありません。
+
+### 6-1. Mac の「メール」アプリにお名前.com のアドレスを追加する
+
+1. 「メール」アプリを開き、画面上のメニューから **メール → アカウントを追加…** を選ぶ
+2. **その他のメールアカウント…** を選んで「続ける」
+3. 名前（相手に表示される差出人名）・お名前.com のメールアドレス・パスワードを入力して「サインイン」
+4. 「アカウント名またはパスワードを確認できません」と出たら、続けて次のように入力する
+   - アカウントの種類：**IMAP**
+   - 受信用メールサーバ・送信用メールサーバ：お名前.com の管理画面（お名前.com Navi）のメール設定情報に書かれているサーバー名
+   - ユーザ名：**メールアドレスをすべて**（@ 以降も）
+5. 「メール」アプリで、そのアドレスから自分宛てに1通送ってみて、届くことを確認する
+
+> ツールは送信前に、設定ファイルの送信者アドレスが「メール」アプリに登録されているかを確認します。
+> 登録されていなければ送信しないので、Mobirio のアドレスで間違えて送ることはありません。
+
+### 6-2. エムファーム用の設定ファイルを作る
+
+スプレッドシート（MF_魚仕入れ先調査、「自動化_送信管理」タブ）・送信者・文面は、設定済みです。
+次のコマンドで `config.mfarm.toml` を作ります。
+
+```bash
+cp config.mfarm.example.toml config.mfarm.toml
+```
+
+電話番号だけは公開リポジトリに載せないよう空けてあるので、次のコマンドで書き込みます。
+
+```bash
+sed -i '' 's/phone = "（要記入）"/phone = "070-4495-9052"/' config.mfarm.toml
+```
+
+内容を確認・変更したいときは、テキストエディットで開きます（郵便番号・住所を入れるとフォームの住所欄にも自動入力されます）。
+
+```bash
+open -a TextEdit config.mfarm.toml
+```
+
+> テキストエディットで `"` が `“` に変わってしまう場合は、メニューの **編集 → 自動置換 → スマート引用符** のチェックを外してください。
+
+送信対象は「自動化_送信管理」タブの会社です。次の会社には送りません。
+
+- 「送信拒否」が「はい」の会社
+- 「送信ステータス」に「送信済」「完了」「送信不可」「対象外」「辞退」「見送り」が入っている会社
+- 「備考」に「配信停止」「送信不可」「営業お断り」が入っている会社
+- 送信ログ（92_送信ログ タブ）に記録済みの会社
+
+「優先度」が A の会社から順に送ります。メールアドレスがある会社はメール、ない会社はフォームで送ります。
+
+### 6-3. エムファーム用の文面
+
+- メール：`templates/mfarm/email.txt`
+- フォーム：`templates/mfarm/form.txt`
+
+件名は「【お見積書送付のお願い】真鯛・カンパチ・ブリ（ハマチ）の仕入れについて」です。
+宛名（会社名）・送信者の名前・電話・メール・HP は自動で入ります。文面を変えたいときは次のコマンドで開きます。
+
+```bash
+open -a TextEdit templates/mfarm/email.txt
+```
+
+```bash
+open -a TextEdit templates/mfarm/form.txt
+```
+
+### 6-4. 確認してテスト送信する
+
+```bash
+python3 run.py check --config mfarm
+```
+
+- 初回は Google のログイン画面が出ることがあります。エムファームのスプレッドシートを編集できるアカウントでログインしてください
+- 「メール送信の対象」「フォーム送信の対象」の件数と会社名が表示されます
+- 「⚠ 次の見出しがスプレッドシートの1行目に見つかりません」と出たら、スプレッドシートの見出しが変わっています。`config.mfarm.toml` の `[columns]` を表示された見出しに合わせて直してください
+
+```bash
+python3 run.py preview -n 3 --config mfarm
+```
+
+```bash
+python3 run.py test-mail 自分のメールアドレス --config mfarm
+```
+
+届いたテストメールの差出人がお名前.com のアドレスになっていれば準備完了です。あとは2章のコマンドに ` --config mfarm` を付けて使います。
+
+```bash
+caffeinate -i python3 run.py mail --config mfarm
+```
+
+```bash
+python3 run.py form --config mfarm
+```
+
+> **Google アカウントについて**：エムファームのスプレッドシートが Mobirio とは別の Google アカウントのものでも、
+> いつもログインしている Google アカウントにそのスプレッドシートを「編集者」として共有すれば、そのまま使えます（おすすめ）。
+> どうしても別のアカウントでログインしたい場合は、`config.mfarm.toml` の `token_file` を `"credentials/token_mfarm.json"` に変えてください。
+
+## 7. ツールを新しくする（更新）
+
+設定ファイル・Google の認証・送らない会社リスト・自分で直した文面は残したまま、プログラムだけを新しくします。
+ターミナルに次のコマンドを1つずつ貼り付けて実行してください。
+
+まず、念のため今のフォルダを丸ごとバックアップします。
+
+```bash
+cp -R ~/Documents/sales-mailer ~/Documents/sales-mailer-backup-$(date +%Y%m%d-%H%M)
+```
+
+新しいプログラムをダウンロードします。
+
+```bash
+rm -rf ~/Downloads/sales-mailer-update && mkdir -p ~/Downloads/sales-mailer-update && curl -L -o ~/Downloads/sales-mailer-update/update.zip https://github.com/hiroto-rds/-HP/archive/refs/heads/claude/awesome-hawking-im5t49.zip && unzip -q ~/Downloads/sales-mailer-update/update.zip -d ~/Downloads/sales-mailer-update
+```
+
+ダウンロードしたフォルダに移動します。
+
+```bash
+cd ~/Downloads/sales-mailer-update/*/sales-mailer
+```
+
+プログラムを上書きします（設定ファイル・認証・送らない会社リスト・文面は上書きしません）。
+
+```bash
+cp -R run.py requirements.txt README.md config.example.toml config.mfarm.example.toml salesmailer ~/Documents/sales-mailer/
+```
+
+新しく増えた文面（エムファーム用など）だけを追加します（今ある文面はそのままです）。
+
+```bash
+cp -R -n templates ~/Documents/sales-mailer/
+```
+
+最後に、必要な部品を更新します。
+
+```bash
+cd ~/Documents/sales-mailer && source .venv/bin/activate && pip install -r requirements.txt
+```
+
+うまく動かなくなったときは、バックアップしたフォルダ（`sales-mailer-backup-日付`）の名前を `sales-mailer` に戻せば元どおりです。
+
 ## ファイル構成
 
 ```
 run.py                     実行するファイル
 exclude.txt                送らない会社のリスト
-config.example.toml        設定の見本（初回に config.toml としてコピーされます）
-config.toml                自分の設定（Git には保存されません）
+exclude.mfarm.txt          送らない会社のリスト（エムファーム用）
+config.example.toml        Mobirio 用の設定の見本（初回に config.toml としてコピーされます）
+config.toml                Mobirio 用の自分の設定（Git には保存されません）
+config.mfarm.example.toml  エムファーム用の設定の見本（初回に config.mfarm.toml としてコピーされます）
+config.mfarm.toml          エムファーム用の自分の設定（Git には保存されません）
 credentials/               Google の鍵ファイルを置く場所（Git には保存されません）
 templates/email.txt        メールの文面
 templates/form.txt         フォームの文面
+templates/mfarm/           エムファーム用のメール・フォームの文面
 salesmailer/               プログラム本体
 ```

@@ -59,7 +59,7 @@ def in_prefectures(pref: str, wanted: list[str]) -> bool:
     return any(pref.startswith(w) for w in wanted)
 
 
-# お店の公式フォームではない、ポータルサイト・SNS など（config.toml の skip_form_domains に加えて使わない）
+# お店の公式フォームではない、ポータルサイト・SNS など（設定ファイルの skip_form_domains に加えて使わない）
 PORTAL_DOMAINS = [
     "goobike.com", "bikebros.co.jp", "webike.net", "hondago-bikerental.jp", "rental819.com",
     "instagram.com", "facebook.com", "x.com", "twitter.com", "line.me", "google.com",
@@ -116,7 +116,7 @@ def normalize_url(url: str) -> str:
 class Selector:
     def __init__(self, cfg: dict, log: list[dict]):
         self.f = cfg["filter"]
-        self.excludes = [(name, normalize_name(name)) for name in load_exclude_names()]
+        self.excludes = [(name, normalize_name(name)) for name in load_exclude_names(cfg)]
         self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
         self.refusal_columns = self.f.get("refusal_columns", REFUSAL_COLUMNS)
         self.done_ids = set()
@@ -171,6 +171,11 @@ class Selector:
         remarks = lead.get("remarks")
         if any(k in remarks for k in f["skip_remarks_keywords"]):
             return "備考に送信不可の記載あり"
+        # [filter.skip_when]：「列の見出し = [この言葉が入っていたら送らない]」
+        for col, words in f.get("skip_when", {}).items():
+            value = lead.values.get(col, "").strip()
+            if value and any(w in value for w in words):
+                return f"{col}が「{value}」"
         if f["skip_already_contacted"]:
             count = lead.get("approach_count")
             if (count and count not in ("0", "0.0")) or lead.get("last_contact"):

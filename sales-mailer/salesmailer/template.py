@@ -59,6 +59,7 @@ def build_context(lead: Lead, sender: dict) -> dict:
         "宛名": addressee(company, shop) + " ご担当者様",
         "送信者会社名": sender["company"],
         "送信者姓": sender["last_name"],
+        "送信者名": sender["first_name"],
         "送信者氏名": f"{sender['last_name']} {sender['first_name']}",
         "送信者氏名カナ": f"{sender['last_name_kana']} {sender['first_name_kana']}",
         "送信者メール": sender["email"],

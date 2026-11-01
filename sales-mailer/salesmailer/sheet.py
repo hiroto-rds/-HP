@@ -8,8 +8,8 @@ from datetime import datetime
 
 from .config import resolve_path
 
-# OAuth でログインしたあとの許可情報を保存するファイル（credentials フォルダ内）
-TOKEN_FILE = "token.json"
+# OAuth でログインしたあとの許可情報を保存するファイル（設定ファイルの token_file で変更できる）
+DEFAULT_TOKEN_FILE = "credentials/token.json"
 
 LOG_HEADER = ["日時", "方法", "結果", "リードID", "店名", "都道府県", "宛先", "タブ", "メモ"]
 
@@ -59,18 +59,31 @@ class Lead:
 
     @property
     def score(self) -> int:
+        """点数の高い会社から送る。「A」「B」のような優先度の場合は A が一番高い。"""
+        value = self.get("score")
         try:
-            return int(float(self.get("score")))
+            return int(float(value))
         except ValueError:
+            grade = {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}.get(value[:1].upper()) if value else None
+            if grade is not None:
+                return grade
             return self.linked.score if self.linked else -1
+
+    def score_label(self) -> str:
+        value = self.get("score")
+        try:
+            return f"{int(float(value))}点"
+        except ValueError:
+            return value or "-"
 
     @property
     def prefecture(self) -> str:
-        pref = self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
-        if not pref:
-            m = PREF_RE.match(self.values.get("住所", "").strip())
-            pref = m.group(1) if m else (self.linked.prefecture if self.linked else "")
-        return pref
+        """都道府県。都道府県の列がなければ「住所」から取り出す（「鹿児島県阿久根市」のような列も都道府県だけにする）。"""
+        value = self.values.get(self.cols.get("prefecture", "都道府県"), "").strip()
+        m = PREF_RE.match(value or self.values.get("住所", "").strip())
+        if m:
+            return m.group(1)
+        return value or (self.linked.prefecture if self.linked else "")
 
     def label(self) -> str:
         pref = self.prefecture
@@ -84,22 +97,24 @@ class SheetClient:
         self._gspread = gspread
         self.cfg = cfg
         self.cols = cfg["columns"]
-        gc, hint = self._authorize(gspread, resolve_path(cfg["sheet"]["credentials_file"]))
+        token = resolve_path(cfg["sheet"].get("token_file") or DEFAULT_TOKEN_FILE)
+        gc, hint = self._authorize(gspread, resolve_path(cfg["sheet"]["credentials_file"]), token)
         try:
             self.book = gc.open_by_key(cfg["sheet"]["spreadsheet_id"])
         except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.APIError) as e:
             raise SystemExit(f"スプレッドシートを開けませんでした。\n{hint}\n（詳細: {e}）")
         self._log_ws = None
+        self.headers: dict[str, list[str]] = {}  # タブごとの1行目の見出し
 
     @staticmethod
-    def _authorize(gspread, cred):
+    def _authorize(gspread, cred, token):
         """credentials フォルダの JSON の種類に合わせて、Google にログインする。
 
         - OAuth クライアント（デスクトップアプリ）: 初回だけブラウザで自分の Google アカウントにログイン
         - サービスアカウントの鍵: そのまま接続
         """
         if not cred.exists():
-            found = [p for p in cred.parent.glob("*.json") if p.name != TOKEN_FILE]
+            found = [p for p in cred.parent.glob("*.json") if not p.name.startswith("token")]
             if len(found) != 1:
                 raise SystemExit(
                     f"Google の認証ファイルが見つかりません: {cred}\n"
@@ -113,7 +128,6 @@ class SheetClient:
                 "スプレッドシートを「編集者」として共有してあるか確認してください。"
             )
         if "installed" in info or "web" in info:
-            token = cred.parent / TOKEN_FILE
             if not token.exists():
                 print("ブラウザが開くので、スプレッドシートを編集できる Google アカウントでログインし、「許可」を押してください。")
             gc = gspread.oauth(
@@ -140,6 +154,7 @@ class SheetClient:
                 print(f"⚠ タブ「{tab}」に店名の見出しが見つからないため読み飛ばします。")
                 continue
             header = [h.strip() for h in rows[head]]
+            self.headers[tab] = header
             for i, row in enumerate(rows[head + 1:], start=head + 2):
                 values = {}
                 for h, v in zip(header, row):

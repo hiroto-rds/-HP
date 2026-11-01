@@ -1,5 +1,7 @@
-# 個人の設定・Google の鍵は Git に保存しない
+# 個人の設定・Google の鍵は Git に保存しない（config.toml, config.mfarm.toml など）
 config.toml
+config.*.toml
+!config.*example.toml
 credentials/*
 !credentials/.gitkeep
 __pycache__/
