@@ -51,12 +51,13 @@ class Lead:
         except ValueError:
             return {"S": 5, "A": 4, "B": 3, "C": 2, "D": 1}.get(value[:1].upper(), -1)
 
-    def score_label(self) -> str:
+    def score_label(self, ascending: bool = False) -> str:
         value = self.get("score")
         try:
-            return f"{int(float(value))}点"
+            number = int(float(value))
         except ValueError:
             return value or "-"
+        return f"優先{number}" if ascending else f"{number}点"
 
     @property
     def prefecture(self) -> str:
@@ -84,7 +85,9 @@ class SheetClient:
         except (gspread.exceptions.SpreadsheetNotFound, gspread.exceptions.APIError) as e:
             raise SystemExit(f"スプレッドシートを開けませんでした。\n{hint}\n（詳細: {e}）")
         self._log_ws = None
-        self.headers: dict[str, list[str]] = {}  # タブごとの1行目の見出し
+        self.headers: dict[str, list[str]] = {}  # タブごとの見出し
+        # 見出しの行（1〜3行目がタイトルになっているシートでは 4 などにする）
+        self.header_row = int(cfg["sheet"].get("header_row", 1))
 
     @staticmethod
     def _authorize(gspread, cred, token):
@@ -129,11 +132,11 @@ class SheetClient:
                 print(f"⚠ タブ「{tab}」が見つからないため読み飛ばします。")
                 continue
             rows = ws.get_all_values()
-            if not rows:
+            if len(rows) < self.header_row:
                 continue
-            header = [h.strip() for h in rows[0]]
+            header = [h.strip() for h in rows[self.header_row - 1]]
             self.headers[tab] = header
-            for i, row in enumerate(rows[1:], start=2):
+            for i, row in enumerate(rows[self.header_row:], start=self.header_row + 1):
                 values = {}
                 for h, v in zip(header, row):
                     if h and h not in values:
@@ -188,7 +191,7 @@ class SheetClient:
 
     def _mark_contacted(self, lead: Lead, method: str, date: str) -> None:
         ws = self.book.worksheet(lead.tab)
-        header = [h.strip() for h in ws.row_values(1)]
+        header = [h.strip() for h in ws.row_values(self.header_row)]
         row = self._locate_row(ws, header, lead)
         if row is None:
             print(f"  ⚠ 「{lead.tab}」で {lead.lead_id} の行が見つからず、最終コンタクトを更新できませんでした。")

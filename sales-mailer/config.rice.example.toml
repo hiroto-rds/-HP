@@ -9,32 +9,34 @@
 # 送信ログもエムファームのスプレッドシートに記録されるので、1日の上限も会社ごとに数えます。
 
 [sheet]
-# お米の仕入れ先リスト（URL をそのまま貼っても大丈夫です）
+# 茨城県_お米卸売候補10社_20261031（URL をそのまま貼っても大丈夫です）
 spreadsheet_id = "1C2naj69vjBn7ZptlxQVsnoT5Ll8J6-jnbsqKjC0PHKY"
 # Google の認証ファイル（Mobirio と同じものを使います）
 credentials_file = "credentials/client_secret.json"
-# 送信対象にするタブ（1行目が見出しになっている「自動化_送信管理」タブを使います）
-tabs = ["自動化_送信管理"]
+# 送信対象にするタブ
+tabs = ["業者リスト10社"]
+# 見出しの行（このタブは1〜3行目がタイトルなので、4行目が見出し）
+header_row = 4
+# 「優先」が 1, 2, 3… と数字の小さい会社から送る
+priority_ascending = true
 # 送信履歴を記録するタブ（なければ自動で作成されます）
 log_tab = "92_送信ログ"
 # お米用の送らない会社リスト（なければ自動で作成されます）
 exclude_file = "exclude.rice.txt"
-# Google にログインしたあとの許可情報。
-# Mobirio と同じ Google アカウントでエムファームのスプレッドシートを開ける場合は、このままで大丈夫です。
-# 別の Google アカウントでログインしたい場合だけ "credentials/token_mfarm.json" に変えてください。
+# Google にログインしたあとの許可情報（Mobirio・魚と同じ Google アカウントならこのまま）
 token_file = "credentials/token.json"
 
 [columns]
-# 「自動化_送信管理」タブ1行目の見出し名
-lead_id = "企業ID"
-shop_name = "会社名"
-email = "送信先メールアドレス"
-form_url = "お問い合わせフォームURL"
-prefecture = "所在地"         # --pref 鹿児島 のように絞り込むときに使います
-score = "優先度"              # A → B → C の順に送ります
-remarks = "備考"
+# 「業者リスト10社」タブ4行目の見出し名
+shop_name = "事業者名"
+email = "メール"              # 「未掲載」の会社はフォーム（公式サイト）で送ります
+form_url = "公式サイト"       # 問い合わせページではなくトップページが開くので、問い合わせページを開いて r を押します
+prefecture = "所在地"
+score = "優先"
 # このタブにない列（空 "" のままにしておきます）
+lead_id = ""
 company = ""
+remarks = ""
 judgement = ""
 business_status = ""
 list_state = ""
@@ -43,11 +45,9 @@ approach_count = ""
 last_contact = ""
 
 [filter]
-# 「備考」にこの言葉が入っている会社には送りません（配信停止の連絡が来たら備考に「配信停止」と書く）
-skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り"]
-# 「アプローチ回数」や「最終コンタクト」が入っている会社には送らない（このタブにはないので使いません）
+skip_remarks_keywords = []
 skip_already_contacted = false
-# true: メールアドレスがない会社だけフォームで送る / false: フォームがある会社はすべてフォーム対象
+# true: メールアドレスがない会社だけフォームで送る
 form_only_when_no_email = true
 # このドメインのフォームはポータルサイト等のため使いません
 skip_form_domains = [
@@ -60,9 +60,9 @@ allowed_email_adoption = []
 skip_business_status_keywords = []
 
 # 列の値にこの言葉が入っている会社には送りません（「列の見出し」= ["言葉", ...]）
+# 「連絡状況」を「連絡済」「辞退」などに書き換えると、その会社には送りません（「未連絡」は送ります）
 [filter.skip_when]
-"送信拒否" = ["はい"]
-"送信ステータス" = ["送信済", "完了", "送信不可", "対象外", "辞退", "見送り"]
+"連絡状況" = ["連絡済", "送信済", "問い合わせ済", "返信", "対象外", "辞退", "見送り", "お断り", "NG"]
 
 [mail]
 # 1日に送る上限

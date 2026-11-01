@@ -90,7 +90,7 @@ def warn_missing_columns(cfg, sheet):
     required = [f"{k} =「{missing[k]}」" for k in REQUIRED_COLUMNS if k in missing]
     optional = [f"「{n}」" for k, n in missing.items() if k not in REQUIRED_COLUMNS]
     if required:
-        print(f"⚠ 次の見出しがスプレッドシートの1行目に見つかりません（{cfg['_file']} の [columns] を直してください）:")
+        print(f"⚠ 次の見出しがスプレッドシートの{sheet.header_row}行目に見つかりません（{cfg['_file']} の [columns] を直してください）:")
         for m in required:
             print(f"    {m}")
         print(f"  スプレッドシートの見出し: {'、'.join(h for h in next(iter(sheet.headers.values())) if h)}")
@@ -134,7 +134,7 @@ def cmd_check(cfg, args):
         if items:
             print(f"\n▼ {title}（先頭10件）")
             for lead, target in items[:10]:
-                print(f"  {lead.score_label():>4}  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
+                print(f"  {lead.score_label(selector.ascending):>4}  {lead.label()}  {'（Googleでお店のサイトを探す）' if is_search_url(target) else target}")
     missing = missing_sender_fields(cfg)
     if missing:
         print(f"\n⚠ {cfg['_file']} の [sender] に「（要記入）」が残っています: " + ", ".join(missing))

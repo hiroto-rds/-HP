@@ -91,6 +91,8 @@ class Selector:
         self.f = cfg["filter"]
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names(cfg)]
         self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
+        # true: 「優先」1, 2, 3… のように数字が小さい会社から送る
+        self.ascending = cfg["sheet"].get("priority_ascending", False)
         self.done_ids = set()
         self.done_targets = set()
         for e in log:
@@ -99,6 +101,12 @@ class Selector:
                 target = e.get("宛先", "")
                 self.done_targets.add(target.lower() if "@" in target else normalize_url(target))
         self.log = log
+
+    def order(self, leads: list[Lead]) -> list[Lead]:
+        """送る順番（点数・優先度の高い会社から。値がない会社は最後）。"""
+        if self.ascending:
+            return sorted(leads, key=lambda l: l.score if l.score >= 0 else float("inf"))
+        return sorted(leads, key=lambda l: -l.score)
 
     def sent_today(self, method: str) -> int:
         today = date.today().isoformat()
@@ -167,7 +175,7 @@ class Selector:
 
     def email_candidates(self, leads: list[Lead]) -> list[tuple[Lead, str]]:
         out, seen = [], set()
-        for lead in sorted(leads, key=lambda l: -l.score):
+        for lead in self.order(leads):
             if self.skip_reason(lead):
                 continue
             email = self.email_for(lead)
@@ -181,7 +189,7 @@ class Selector:
     def form_candidates(self, leads: list[Lead]) -> list[tuple[Lead, str]]:
         """フォームで送る会社。公式フォームの URL がない会社は、Google 検索で探す（search_when_no_form）。"""
         out, seen = [], set()
-        for lead in sorted(leads, key=lambda l: -l.score):
+        for lead in self.order(leads):
             if self.skip_reason(lead):
                 continue
             if self.f["form_only_when_no_email"] and self.email_for(lead):
@@ -199,7 +207,7 @@ class Selector:
         mail_ok = {id(l): t for l, t in self.email_candidates(leads)}
         form_ok = {id(l): t for l, t in self.form_candidates(leads)}
         out = []
-        for lead in sorted(leads, key=lambda l: -l.score):
+        for lead in self.order(leads):
             reason = self.skip_reason(lead)
             if reason:
                 out.append((lead, reason, reason))
