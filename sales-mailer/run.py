@@ -153,6 +153,10 @@ def cmd_preview(cfg, args):
 def cmd_test_mail(cfg, args):
     from salesmailer.mac_mail import MailError, send_mail
 
+    from salesmailer.selection import extract_email
+
+    if extract_email(args.address) != args.address.strip():
+        sys.exit(f"「{args.address}」はメールアドレスではありません。自分のメールアドレス（例: info@example.com）に書き換えて実行してください。")
     require_sender(cfg)
     require_mail_account(cfg)
     _, leads, selector = connect(cfg)
