@@ -9,14 +9,14 @@ Mobirio 用（Mobirio_アタックリスト）とエムファーム用を、1つ
 
 送った結果はスプレッドシートに記録されるので、同じ会社に二重に送ることはありません。
 
-| | Mobirio | エムファーム |
-|---|---|---|
-| コマンド | `python3 run.py check` | `python3 run.py check --config mfarm` |
-| 設定ファイル | `config.toml` | `config.mfarm.toml` |
-| 文面 | `templates/email.txt`・`templates/form.txt` | `templates/mfarm/email.txt`・`templates/mfarm/form.txt` |
-| 送らない会社 | `exclude.txt` | `exclude.mfarm.txt` |
+| | Mobirio | エムファーム（魚） | エムファーム（お米） |
+|---|---|---|---|
+| コマンド | `python3 run.py check` | `python3 run.py check --config mfarm` | `python3 run.py check --config rice` |
+| 設定ファイル | `config.toml` | `config.mfarm.toml` | `config.rice.toml` |
+| 文面 | `templates/email.txt`・`form.txt` | `templates/mfarm/` | `templates/rice/` |
+| 送らない会社 | `exclude.txt` | `exclude.mfarm.txt` | `exclude.rice.txt` |
 
-この README のコマンドはすべて、後ろに ` --config mfarm` を付けるとエムファーム用になります。
+この README のコマンドはすべて、後ろに ` --config mfarm`（魚）や ` --config rice`（お米）を付けると、エムファーム用になります。
 何も付けなければ、これまでどおり Mobirio 用です。
 実行すると最初の行に「■ 設定ファイル: 〜　送信者: 〜」と表示されるので、どちらの会社で動いているか確認してください。
 
@@ -342,6 +342,29 @@ python3 run.py form --config mfarm
 > いつもログインしている Google アカウントにそのスプレッドシートを「編集者」として共有すれば、そのまま使えます（おすすめ）。
 > どうしても別のアカウントでログインしたい場合は、`config.mfarm.toml` の `token_file` を `"credentials/token_mfarm.json"` に変えてください。
 
+### 6-5. お米の仕入れ先（--config rice）
+
+送信者は魚と同じで、スプレッドシートと文面だけが違います（文面は `templates/rice/`）。
+
+```bash
+cp config.rice.example.toml config.rice.toml
+```
+
+```bash
+sed -i '' 's/phone = "（要記入）"/phone = "070-4495-9052"/' config.rice.toml
+```
+
+```bash
+python3 run.py check --config rice
+```
+
+あとは魚と同じく、`preview`・`test-mail`・`mail`・`form` に ` --config rice` を付けて使います。
+
+### 6-6. さらに別のスプレッドシートを使う
+
+`config.mfarm.example.toml` を見本に `config.名前.toml` を作り、スプレッドシートの URL・タブ・見出し・文面の場所を書き換えると、
+` --config 名前` で使えます。
+
 ## 7. ツールを新しくする（更新）
 
 設定ファイル・Google の認証・送らない会社リスト・自分で直した文面は残したまま、プログラムだけを新しくします。
@@ -368,7 +391,7 @@ cd ~/Downloads/sales-mailer-update/*/sales-mailer
 プログラムを上書きします（設定ファイル・認証・送らない会社リスト・文面は上書きしません）。
 
 ```bash
-cp -R run.py requirements.txt README.md config.example.toml config.mfarm.example.toml salesmailer ~/Documents/sales-mailer/
+cp -R run.py requirements.txt README.md config.example.toml config.mfarm.example.toml config.rice.example.toml salesmailer ~/Documents/sales-mailer/
 ```
 
 新しく増えた文面（エムファーム用など）だけを追加します（今ある文面はそのままです）。
@@ -395,9 +418,11 @@ config.example.toml        Mobirio 用の設定の見本（初回に config.toml
 config.toml                Mobirio 用の自分の設定（Git には保存されません）
 config.mfarm.example.toml  エムファーム用の設定の見本（初回に config.mfarm.toml としてコピーされます）
 config.mfarm.toml          エムファーム用の自分の設定（Git には保存されません）
+config.rice.example.toml   エムファーム（お米）用の設定の見本
 credentials/               Google の鍵ファイルを置く場所（Git には保存されません）
 templates/email.txt        メールの文面
 templates/form.txt         フォームの文面
-templates/mfarm/           エムファーム用のメール・フォームの文面
+templates/mfarm/           エムファーム（魚）用のメール・フォームの文面
+templates/rice/            エムファーム（お米）用のメール・フォームの文面
 salesmailer/               プログラム本体
 ```
