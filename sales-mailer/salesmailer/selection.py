@@ -119,6 +119,7 @@ class Selector:
         self.excludes = [(name, normalize_name(name)) for name in load_exclude_names(cfg)]
         self.search_when_no_form = cfg.get("form", {}).get("search_when_no_form", False)
         self.refusal_columns = self.f.get("refusal_columns", REFUSAL_COLUMNS)
+        self.refused_names: dict[str, str] = {}  # 電話でお断りされた店の店名（learn で集める）
         self.done_ids = set()
         self.done_targets = set()
         self.done_names = set()  # 送信ログの店名（都道府県つき。都道府県が記録されていない古い行は店名だけ）
@@ -130,6 +131,14 @@ class Selector:
                 self.done_names.add(shop_key(e.get("店名", ""), e.get("都道府県", "")))
         self.done_names.discard("")
         self.log = log
+
+    def learn(self, leads: list[Lead]) -> None:
+        """電話でお断りされた店の店名を覚えておく。元シート行でつながっていない 01 タブの同じ店にも送らないため。"""
+        for lead in leads:
+            refused = refusal(lead, self.refusal_columns)
+            key = shop_key(lead)
+            if refused and key:
+                self.refused_names.setdefault(key, refused)
 
     def sent_today(self, method: str) -> int:
         today = date.today().isoformat()
@@ -149,7 +158,7 @@ class Selector:
         name = self.excluded_by(lead)
         if name:
             return f"送らない会社リスト（{name}）"
-        refused = refusal(lead, self.refusal_columns)
+        refused = refusal(lead, self.refusal_columns) or self.refused_names.get(shop_key(lead))
         if refused:
             return f"電話でお断り（{refused}）"
         # 「対象判定」などの列がないタブ（モビリオ タブ）は、同じ店の 01 タブなどの行で判定する

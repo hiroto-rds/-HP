@@ -33,6 +33,7 @@ def connect(cfg, args=None):
     sheet = SheetClient(cfg)
     leads = sheet.load_leads()
     selector = Selector(cfg, sheet.load_log())
+    selector.learn(leads)  # 県で絞り込む前に、全部の店から「電話でお断り」の店名を集める
     words = getattr(args, "pref", None)
     if words:
         wanted = expand_prefectures(words)
