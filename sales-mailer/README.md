@@ -402,7 +402,7 @@ templates/mfarm/           エムファーム用のメール・フォームの�
 salesmailer/               プログラム本体
 ```
 
-## 7. Rデザインスタジオ（自社）用に使う（--config rds）
+## 8. Rデザインスタジオ（自社）用に使う（--config rds）
 
 宮崎市の Web 制作の営業リスト（「営業リスト」タブ）に、info@r-design-studio.jp から送ります。
 
