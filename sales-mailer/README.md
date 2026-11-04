@@ -401,3 +401,27 @@ templates/form.txt         フォームの文面
 templates/mfarm/           エムファーム用のメール・フォームの文面
 salesmailer/               プログラム本体
 ```
+
+## 7. Rデザインスタジオ（自社）用に使う（--config rds）
+
+宮崎市の Web 制作の営業リスト（「営業リスト」タブ）に、info@r-design-studio.jp から送ります。
+
+1. 一度 `python3 run.py check --config rds` を実行すると、`config.rds.toml` が作られます。
+2. `config.rds.toml` の `spreadsheet_id` にスプレッドシートの URL（または ID）、`phone` に電話番号を書きます。
+3. 文面は `templates/rds/email.txt`（メール）と `templates/rds/form.txt`（フォーム）です。
+4. 送らない会社は `exclude.rds.txt` に書きます。
+
+送ったあとは、「営業リスト」タブの **営業ステータス** が「未連絡」から「連絡済」に変わり、
+**初回連絡日**・**最終連絡日** に日付が入ります。「返信あり」「商談」「失注」などになっている会社には送りません。
+
+```bash
+python3 run.py check --config rds
+```
+
+```bash
+caffeinate -i python3 run.py mail --config rds
+```
+
+```bash
+python3 run.py form --config rds
+```

@@ -255,9 +255,19 @@ class SheetClient:
             except ValueError:
                 count = 1
             updates.append((count_col, count))
+        record = self.cfg.get("record", {})
         last_col = self._col(header, "last_contact")
         if last_col:
-            updates.append((last_col, f"{date} {method}"))
+            updates.append((last_col, f"{date} {method}" if record.get("last_contact_with_method", True) else date))
+        first_col = self._col(header, "first_contact")
+        if first_col and not (current[first_col - 1].strip() if len(current) >= first_col else ""):
+            updates.append((first_col, date))
+        # 「営業ステータス」が未連絡（空欄）なら、送ったあとの値（「連絡済」など）にする
+        status_col = self._col(header, "status")
+        if status_col:
+            old_status = current[status_col - 1].strip() if len(current) >= status_col else ""
+            if old_status in record.get("status_before", ["", "未連絡"]):
+                updates.append((status_col, record.get("status_value", "連絡済")))
         if updates:
             a1 = self._gspread.utils.rowcol_to_a1
             ws.batch_update(

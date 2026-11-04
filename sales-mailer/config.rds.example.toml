@@ -1,0 +1,102 @@
+# Rデザインスタジオ（自社）用の設定ファイル（宮崎市の Web 制作の営業）
+#
+# 初めて「python3 run.py check --config rds」を実行したとき、
+# このファイルが config.rds.toml としてコピーされます。
+# 編集するのは config.rds.toml の方です（config.rds.toml は Git には保存されません）。
+# 「（要記入）」の部分は必ず書き換えてください。残っていると送信できません。
+#
+# Mobirio（config.toml）・エムファーム（config.mfarm.toml）とは、
+# スプレッドシート・文面・送信者・送らない会社リスト・送信ログ・1日の上限がすべて別々です。
+
+[sheet]
+# 宮崎市_Web制作営業候補50社（URL をそのまま貼っても大丈夫です）
+spreadsheet_id = "（要記入）"
+# Google の認証ファイル（Mobirio と同じものを使います）
+credentials_file = "credentials/client_secret.json"
+# 送信対象にするタブ
+tabs = ["営業リスト"]
+# このスプレッドシートには元のリストのタブはありません
+source_tab = ""
+# 送信履歴を記録するタブ（なければ自動で作成されます）
+log_tab = "送信ログ"
+# Rデザインスタジオ用の送らない会社リスト
+exclude_file = "exclude.rds.txt"
+# Mobirio と同じ Google アカウントでこのスプレッドシートを開ける場合は、このままで大丈夫です
+token_file = "credentials/token.json"
+
+[columns]
+# 「営業リスト」タブ1行目の見出し名
+lead_id = "No."
+shop_name = "企業名"
+email = "メールアドレス"
+form_url = "問い合わせフォームURL"
+score = "営業優先度"          # A → B → C の順に送ります
+remarks = "備考"
+last_contact = "最終連絡日"   # 送った日を入れます
+first_contact = "初回連絡日"  # 空欄なら、送った日を入れます
+status = "営業ステータス"     # 「未連絡」なら「連絡済」にします
+# このタブにない列（空 "" のままにしておきます）
+company = ""
+judgement = ""
+business_status = ""
+list_state = ""
+email_adoption = ""
+approach_count = ""
+
+[record]
+# 送ったら「営業ステータス」をこの値にする（今の値が status_before のどれかのときだけ）
+status_value = "連絡済"
+status_before = ["", "未連絡"]
+# 「最終連絡日」には日付だけを入れる（false）／「2026-11-04 メール」のように方法も入れる（true）
+last_contact_with_method = false
+
+[filter]
+# 「備考」にこの言葉が入っている会社には送りません（配信停止の連絡が来たら備考に「配信停止」と書く）
+skip_remarks_keywords = ["配信停止", "送信不可", "営業お断り"]
+skip_already_contacted = false
+# true: メールアドレスがない会社だけフォームで送る
+form_only_when_no_email = true
+# このドメインのフォームはポータルサイト等のため使いません
+skip_form_domains = [
+  "instagram.com", "facebook.com", "x.com", "twitter.com", "line.me", "google.com",
+]
+# 電話でのお断りの列はこのタブにはありません
+refusal_columns = {}
+# 以下はこのタブでは使いません
+allowed_judgements = []
+required_list_state = ""
+allowed_email_adoption = []
+skip_business_status_keywords = []
+
+# 列の値にこの言葉が入っている会社には送りません（「列の見出し」= ["言葉", ...]）
+[filter.skip_when]
+"営業ステータス" = ["連絡済", "返信あり", "商談", "見積提出", "成約", "失注"]
+
+[mail]
+# 1日に送る上限
+daily_limit = 30
+# 1通ごとの待ち時間（秒）。この範囲でランダムに待ちます。
+interval_seconds = [60, 120]
+template = "templates/rds/email.txt"
+
+[form]
+daily_limit = 30
+template = "templates/rds/form.txt"
+# true にすると、問い合わせフォームが登録されていない会社も、Google検索でサイトを探して対象にする
+search_when_no_form = false
+browser_channel = "chrome"
+
+[sender]
+# Rデザインスタジオの送信者情報。メール本文の署名・フォームへの自動入力に使います。
+# 電話番号・郵便番号・住所は公開リポジトリに載せないよう、config.rds.toml にだけ書いてください。
+company = "Rデザインスタジオ"
+last_name = "菊池"
+first_name = "裕人"
+last_name_kana = "キクチ"
+first_name_kana = "ヒロト"
+# Mac の「メール」アプリに登録してある、送信に使うアドレス
+email = "info@r-design-studio.jp"
+phone = "（要記入）"
+zip = ""
+address = ""
+url = "https://r-design-studio.jp"
