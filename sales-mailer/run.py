@@ -165,7 +165,9 @@ def cmd_test_mail(cfg, args):
     require_sender(cfg)
     require_mail_account(cfg)
     _, leads, selector = connect(cfg)
-    messages = render_all(cfg, "mail", selector.email_candidates(leads)[:1])
+    # メールの送信先がない設定でも、フォームの送信先や一覧の先頭の会社を見本にして文面を確認できるようにする
+    sample = selector.email_candidates(leads)[:1] or selector.form_candidates(leads)[:1] or [(l, "") for l in leads[:1]]
+    messages = render_all(cfg, "mail", sample)
     if not messages:
         sys.exit("文面の見本にする会社がありません。")
     lead, _, subject, body = messages[0]
