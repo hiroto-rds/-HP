@@ -61,12 +61,27 @@ def require_mail_account(cfg):
 
 
 def render_all(cfg, section, candidates):
-    """送信前に全件の文面を作ってみて、差し込みミスがあれば送信を始めない。"""
+    """送信前に全件の文面を作ってみて、差し込みミスがあれば送信を始めない。
+
+    [mail] / [form] の alt_templates に書いた条件（列の値にその言葉が入っている）に当てはまる会社には、別の文面を使う。
+    """
     try:
-        template = load_template(cfg[section]["template"])
-        if PLACEHOLDER in template[0] + template[1]:
-            raise TemplateError(f"{cfg[section]['template']} に「{PLACEHOLDER}」が残っています。件名と本文を書いてください。")
-        return [(lead, target, *render_message(template, lead, cfg["sender"])) for lead, target in candidates]
+        def checked(path):
+            template = load_template(path)
+            if PLACEHOLDER in template[0] + template[1]:
+                raise TemplateError(f"{path} に「{PLACEHOLDER}」が残っています。件名と本文を書いてください。")
+            return template
+
+        default = checked(cfg[section]["template"])
+        alts = [(a["column"], a["contains"], checked(a["template"])) for a in cfg[section].get("alt_templates", [])]
+
+        def template_for(lead):
+            for column, word, template in alts:
+                if word in lead.values.get(column, ""):
+                    return template
+            return default
+
+        return [(lead, target, *render_message(template_for(lead), lead, cfg["sender"])) for lead, target in candidates]
     except TemplateError as e:
         sys.exit(f"文面テンプレートの問題: {e}")
 

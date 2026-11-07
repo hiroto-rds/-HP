@@ -71,8 +71,6 @@ skip_business_status_keywords = []
 # 列の値にこの言葉が入っている会社には送りません（「列の見出し」= ["言葉", ...]）
 [filter.skip_when]
 "営業ステータス" = ["連絡済", "返信あり", "商談", "見積提出", "成約", "失注"]
-# ホームページがない会社には、文面を自分で直して送るため、ツールからは送らない
-"公式ホームページURL" = ["公式サイト未確認"]
 
 [mail]
 # 1日に送る上限
@@ -80,10 +78,17 @@ daily_limit = 30
 # 1通ごとの待ち時間（秒）。この範囲でランダムに待ちます。
 interval_seconds = [60, 120]
 template = "templates/rds/email.txt"
+# ホームページがない会社（「公式ホームページURL」が「公式サイト未確認」）には、別の文面で送る
+alt_templates = [
+  { column = "公式ホームページURL", contains = "公式サイト未確認", template = "templates/rds/email_nohp.txt" },
+]
 
 [form]
 daily_limit = 30
 template = "templates/rds/form.txt"
+alt_templates = [
+  { column = "公式ホームページURL", contains = "公式サイト未確認", template = "templates/rds/email_nohp.txt" },
+]
 # true にすると、問い合わせフォームが登録されていない会社も、Google検索でサイトを探して対象にする
 search_when_no_form = false
 browser_channel = "chrome"
